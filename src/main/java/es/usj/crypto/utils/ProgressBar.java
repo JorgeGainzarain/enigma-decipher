@@ -2,16 +2,15 @@ package es.usj.crypto.utils;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class ProgressBar {
-    private final AtomicLong currentProgress;
-    private final long totalProgress;
-    private final Instant startTime;
+    private long currentProgress;
+    private long totalProgress;
+    private Instant startTime;
     private long lastRemainingTime; // Keeps track of the last remaining time for smoothing
 
     public long get() {
-        return currentProgress.get();
+        return currentProgress;
     }
 
     public ProgressBar(int totalProgress) {
@@ -19,43 +18,42 @@ public class ProgressBar {
     }
 
     public ProgressBar(long totalProgress) {
-        this.currentProgress = new AtomicLong(0);
+        this.currentProgress = 0;
         this.totalProgress = totalProgress;
         this.startTime = Instant.now();
         this.lastRemainingTime = 0;
     }
 
-    public void add(int increment) {
+    public synchronized void add(int increment) {
         add((long) increment);
     }
 
-    public void add(long increment) {
-        currentProgress.addAndGet(increment);
+    public synchronized void add(long increment) {
+        currentProgress = Math.min(currentProgress + increment, totalProgress);
         showProgressBar();
     }
 
     public void showProgressBar() {
-        long progress = currentProgress.get();
         int barLength = 50;
-        int progressBar = (int) ((double) progress / totalProgress * barLength);
+        int progress = (int) ((double) currentProgress / totalProgress * barLength);
         StringBuilder bar = new StringBuilder("[");
 
         for (int i = 0; i < barLength; i++) {
-            bar.append(i < progressBar ? "#" : " ");
+            bar.append(i < progress ? "#" : " ");
         }
         bar.append("]");
 
-        double percentage = ((double) progress / totalProgress) * 100;
+        double percentage = ((double) currentProgress / totalProgress) * 100;
         String elapsedTime = getElapsedTime();
-        String eta = getETA(progress);
+        String eta = getETA();
 
         String progressString = String.format("\r%s %.2f%% (%d/%d) Elapsed: %s ETA: %s",
-                bar, percentage, progress, totalProgress, elapsedTime, eta);
+                bar, percentage, currentProgress, totalProgress, elapsedTime, eta);
 
         System.out.print(progressString);
         System.out.flush();
 
-        if (progress == totalProgress) {
+        if (currentProgress == totalProgress) {
             System.out.println(); // Move to next line when complete
         }
     }
@@ -69,8 +67,8 @@ public class ProgressBar {
         return String.format("%02d:%02d:%02d", hours, minutes, seconds);
     }
 
-    private String getETA(long progress) {
-        if (progress == 0) {
+    private String getETA() {
+        if (currentProgress == 0) {
             return "--:--:--"; // ETA cannot be calculated at 0 progress
         }
 
@@ -79,7 +77,7 @@ public class ProgressBar {
         long elapsedMillis = elapsed.toMillis();
 
         // Estimate total time based on progress
-        long estimatedTotalMillis = (long) ((double) elapsedMillis / progress * totalProgress);
+        long estimatedTotalMillis = (long) ((double) elapsedMillis / currentProgress * totalProgress);
         long remainingMillis = Math.max(estimatedTotalMillis - elapsedMillis, 0);
 
         // Smooth the remaining time to avoid fluctuations
@@ -98,7 +96,10 @@ public class ProgressBar {
         return String.format("%02d:%02d:%02d", hours, minutes, seconds);
     }
 
-    public void update(int processed) {
-        this.currentProgress.set(processed);
+    public void reset(int size) {
+        this.currentProgress = 0;
+        this.totalProgress = size;
+        this.startTime = Instant.now();
+        this.lastRemainingTime = 0;
     }
 }

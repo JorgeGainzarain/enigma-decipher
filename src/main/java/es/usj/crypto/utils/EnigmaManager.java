@@ -1,19 +1,20 @@
 package es.usj.crypto.utils;
 
+import es.usj.crypto.EnigmaConfig;
+import es.usj.crypto.Fitness.Score;
 import es.usj.crypto.enigma.EnigmaApp;
-import es.usj.crypto.enigma.Score;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.*;
 import java.util.concurrent.*;
-import java.util.List;
-import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class EnigmaManager {
     private final ExecutorService executor;
     private static String text;
+    private ProgressBar progressBar;
     private static final int MAX_QUEUE_SIZE = 100000; // Prevent unbounded queue growth
 
     public EnigmaManager(Path path) {
@@ -26,58 +27,107 @@ public class EnigmaManager {
     }
 
     public EnigmaManager() {
-        int availableProcessors = Runtime.getRuntime().availableProcessors();
+        // Use a more sophisticated thread pool configuration
         this.executor = new ThreadPoolExecutor(
-                availableProcessors, // Core pool size
-                availableProcessors * 2, // Maximum pool size
+                8, // Core pool size
+                8, // Maximum pool size
                 60L, TimeUnit.SECONDS, // Keep-alive time for idle threads
                 new LinkedBlockingQueue<>(MAX_QUEUE_SIZE), // Bounded queue to prevent resource exhaustion
                 new ThreadPoolExecutor.CallerRunsPolicy() // Backpressure policy
         );
+        this.progressBar = new ProgressBar(0);
     }
 
-    public List<ConfigurationScore> processConfigurations(int[][] rotorTypes, char[][] rotorPositions, String[] plugboards, boolean verbose) {
-        int totalConfigs = rotorTypes.length;
-        ProgressBar progressBar = new ProgressBar(totalConfigs);
+
+    public EnigmaConfig cipherInitialText(int plugboardSize) {
+        try {
+            // Generate a random plugboard configuration
+            String plugboard = generatePlugboard(plugboardSize);
+
+            // Generate random rotor types and positions
+            int[] rotorTypes = generateRandomRotorTypes();
+            char[] rotorPositions = generateRandomRotorPositions();
+
+            // Create a new EnigmaConfig with the generated values
+            EnigmaConfig config = new EnigmaConfig(rotorTypes, rotorPositions, plugboard);
+
+            // Cipher the text using the generated configuration
+            text = process(config);
+
+            return config;
+        } catch (Exception e) {
+            System.err.println("Error during ciphering initial text: " + e.getMessage());
+            return null;
+        }
+    }
+
+    static String generatePlugboard(int size) {
+        if (size == 0) {
+            return "";
+        }
+        String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        List<Character> chars = new ArrayList<>();
+        for (char c : alphabet.toCharArray()) {
+            chars.add(c);
+        }
+        Collections.shuffle(chars);
+        StringBuilder plugboard = new StringBuilder();
+        for (int i = 0; i < size * 2; i += 2) {
+            plugboard.append(chars.get(i)).append(chars.get(i + 1)).append(':');
+        }
+        return plugboard.substring(0, plugboard.length() - 1);
+    }
+
+    private int[] generateRandomRotorTypes() {
+        // Generate radnom rotor types between 1 and 5
+        Random random = new Random();
+        return random.ints(3, 1, 6).toArray();
+    }
+
+    private char[] generateRandomRotorPositions() {
+        // Generate random rotor positions between 'A' and 'Z'
+        Random random = new Random();
+        return random.ints(3, 'A', 'Z' + 1).mapToObj(c -> (char) c).collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append).toString().toCharArray();
+    }
+    public void scoreConfigurations(List<EnigmaConfig> configs, boolean verbose) {
+        progressBar.reset(configs.size());
         if (verbose) {
-            System.out.println("Starting processing of " + totalConfigs + " configurations:");
+            System.out.println("Starting processing of " + configs.size() + " configurations:");
         }
 
-        int progressInterval = Math.max(1, totalConfigs / 100); // Update progress every 1%
+        int totalConfigs = configs.size();
+        int progressInterval = Math.max(1, totalConfigs / 100); // Update progress every 0.1%
         AtomicInteger progressCounter = new AtomicInteger(0);
-        List<ConfigurationScore> scores = new ArrayList<>(totalConfigs);
 
         try {
-            List<CompletableFuture<ConfigurationScore>> futures = new ArrayList<>(totalConfigs);
+            List<CompletableFuture<Void>> futures = new ArrayList<>(totalConfigs);
 
-            for (int i = 0; i < totalConfigs; i++) {
-                int[] currentRotorTypes = rotorTypes[i];
-                char[] currentRotorPositions = rotorPositions[i];
-                String currentPlugboard = plugboards[i];
-
-                CompletableFuture<ConfigurationScore> future = processFuture(currentRotorTypes, currentRotorPositions, currentPlugboard)
-                        .thenApply(score -> {
+            for (EnigmaConfig config : configs) {
+                CompletableFuture<Void> future = processFuture(config)
+                        .thenRun(() -> {
                             int progress = progressCounter.incrementAndGet();
-                            if (progress % progressInterval == 0) {
+                            if (progress % progressInterval == 0 || progress == totalConfigs) {
+                                // Atomic update of progress bar
                                 synchronized (progressBar) {
                                     progressBar.add(Math.min(progressInterval, totalConfigs - progress));
+                                    progressBar.showProgressBar();
+                                    System.out.flush();
                                 }
                             }
-                            return new ConfigurationScore(currentRotorTypes, currentRotorPositions, currentPlugboard, score);
                         })
                         .exceptionally(ex -> {
                             System.err.println("Error processing configuration: " + ex.getMessage());
-                            return new ConfigurationScore(currentRotorTypes, currentRotorPositions, currentPlugboard, 0); // Default score in case of error
+                            return null;
                         });
 
                 futures.add(future);
             }
 
-            for (CompletableFuture<ConfigurationScore> future : futures) {
-                scores.add(future.join());
-            }
+            // Wait for all futures to complete
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
-            progressBar.add(progressInterval);
+            // Add last update to progress bar
+            progressBar.add(configs.size() - progressBar.get());
 
             if (verbose) {
                 System.out.println("\nProcessing completed.");
@@ -85,47 +135,26 @@ public class EnigmaManager {
         } catch (Exception e) {
             System.err.println("Error during configuration processing: " + e.getMessage());
         }
-
-        return scores;
     }
 
-    public double processConfiguration(int[] rotorTypes, char[] rotorPositions, String plugboard) {
-        String[] args = {
-                "--input=" + text,
-                "--plugboard=" + plugboard,
-                "--left-rotor=" + rotorTypes[0],
-                "--left-rotor-position=" + rotorPositions[0],
-                "--middle-rotor=" + rotorTypes[1],
-                "--middle-rotor-position=" + rotorPositions[1],
-                "--right-rotor=" + rotorTypes[2],
-                "--right-rotor-position=" + rotorPositions[2]
-        };
-
+    public String process(EnigmaConfig config) {
         try {
-            String result = new EnigmaApp().run(args);
-            return Score.evaluate(result);
-        } catch (Exception e) {
+            return processFuture(config).get();
+        } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public String cipherText(int[] rotorTypes, char[] rotorPositions, String plugboard) {
-        String[] args = {
-                "--input=" + text,
-                "--plugboard=" + plugboard,
-                "--left-rotor=" + rotorTypes[0],
-                "--left-rotor-position=" + rotorPositions[0],
-                "--middle-rotor=" + rotorTypes[1],
-                "--middle-rotor-position=" + rotorPositions[1],
-                "--right-rotor=" + rotorTypes[2],
-                "--right-rotor-position=" + rotorPositions[2]
-        };
-
-        try {
-            return new EnigmaApp().run(args);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    private CompletableFuture<String> processFuture(EnigmaConfig config) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String result = new EnigmaRunner(config).call();
+                config.setScore(Score.evaluate(result));
+                return result;
+            } catch (Exception e) {
+                throw new CompletionException(e);
+            }
+        }, executor);
     }
 
     public void shutdown() {
@@ -140,67 +169,26 @@ public class EnigmaManager {
         }
     }
 
-    private CompletableFuture<Double> processFuture(int[] rotorTypes, char[] rotorPositions, String plugboard) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return new EnigmaRunner(rotorTypes, rotorPositions, plugboard).call();
-            } catch (Exception e) {
-                throw new CompletionException(e);
-            }
-        }, executor);
-    }
-
-    private record EnigmaRunner(int[] rotorTypes, char[] rotorPositions, String plugboard) implements Callable<Double> {
+    private record EnigmaRunner(EnigmaConfig config) implements Callable<String> {
 
         @Override
-        public Double call() {
+        public String call() {
             String[] args = {
                     "--input=" + text,
-                    "--plugboard=" + plugboard,
-                    "--left-rotor=" + rotorTypes[0],
-                    "--left-rotor-position=" + rotorPositions[0],
-                    "--middle-rotor=" + rotorTypes[1],
-                    "--middle-rotor-position=" + rotorPositions[1],
-                    "--right-rotor=" + rotorTypes[2],
-                    "--right-rotor-position=" + rotorPositions[2]
+                    "--plugboard=" + config.getPlugboard(),
+                    "--left-rotor=" + config.getRotorTypes()[0],
+                    "--left-rotor-position=" + config.getRotorPositions()[0],
+                    "--middle-rotor=" + config.getRotorTypes()[1],
+                    "--middle-rotor-position=" + config.getRotorPositions()[1],
+                    "--right-rotor=" + config.getRotorTypes()[2],
+                    "--right-rotor-position=" + config.getRotorPositions()[2]
             };
 
             try {
-                String result = new EnigmaApp().run(args);
-                return Score.evaluate(result);
+                return new EnigmaApp().run(args);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }
-    }
-
-    public static class ConfigurationScore {
-        private final int[] rotorTypes;
-        private final char[] rotorPositions;
-        private final String plugboard;
-        private final double score;
-
-        public ConfigurationScore(int[] rotorTypes, char[] rotorPositions, String plugboard, double score) {
-            this.rotorTypes = rotorTypes;
-            this.rotorPositions = rotorPositions;
-            this.plugboard = plugboard;
-            this.score = score;
-        }
-
-        public int[] getRotorTypes() {
-            return rotorTypes;
-        }
-
-        public char[] getRotorPositions() {
-            return rotorPositions;
-        }
-
-        public String getPlugboard() {
-            return plugboard;
-        }
-
-        public double getScore() {
-            return score;
         }
     }
 }

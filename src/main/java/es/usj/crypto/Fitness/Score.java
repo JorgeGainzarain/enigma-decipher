@@ -1,10 +1,4 @@
-package es.usj.crypto.enigma;
-
-import es.usj.crypto.Fitness.BigramFitness;
-import es.usj.crypto.Fitness.TrigramFitness;
-import es.usj.crypto.Fitness.QuadgramFitness;
-import es.usj.crypto.Fitness.EnglishWordChecker;
-import es.usj.crypto.Fitness.IndexOfCoincidence;
+package es.usj.crypto.Fitness;
 
 public class Score {
 
