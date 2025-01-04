@@ -136,4 +136,42 @@ public class Machine {
         return cipherText.toString();
     }
 
+    public void rotateRotors() {
+        rightRotor.update(null);
+        middleRotor.update(rightRotor);
+        leftRotor.update(middleRotor);
+    }
+
+    public void rotateRotors(int times) {
+        for (int i = 0; i < times; i++) {
+            rotateRotors();
+        }
+    }
+
+    public char cipherCharacter(char c) {
+        // Plugboard substitution
+        //char output = plugboard.getPlug(c);
+        char output = c; // Dont use plugboard substitution
+
+        // DON'T Update the rotor positions after encrypting a character
+
+        // Apply rotor substitution (right-to-left)
+        output = rightRotor.forward(output);
+        output = middleRotor.forward(output);
+        output = leftRotor.forward(output);
+
+        // Apply reflector substitution
+        output = reflector.getReflection(output);
+
+        // Apply rotor substitution (left-to-right)
+        output = leftRotor.backward(output);
+        output = middleRotor.backward(output);
+        output = rightRotor.backward(output);
+
+        // Apply plugboard substitution again
+        //output = plugboard.getPlug(output);
+
+        return output;
+    }
+
 }

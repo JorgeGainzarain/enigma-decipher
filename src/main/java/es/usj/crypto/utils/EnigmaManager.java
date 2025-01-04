@@ -54,6 +54,8 @@ public class EnigmaManager {
             // Cipher the text using the generated configuration
             text = process(config);
 
+            System.out.println("Initial text: " + text);
+
             return config;
         } catch (Exception e) {
             System.err.println("Error during ciphering initial text: " + e.getMessage());
@@ -79,9 +81,12 @@ public class EnigmaManager {
     }
 
     private int[] generateRandomRotorTypes() {
-        // Generate radnom rotor types between 1 and 5
         Random random = new Random();
-        return random.ints(3, 1, 6).toArray();
+        Set<Integer> rotorTypesSet = new HashSet<>();
+        while (rotorTypesSet.size() < 3) {
+            rotorTypesSet.add(random.nextInt(5) + 1);
+        }
+        return rotorTypesSet.stream().mapToInt(Integer::intValue).toArray();
     }
 
     private char[] generateRandomRotorPositions() {

@@ -63,6 +63,14 @@ public class EnigmaApp {
      * @throws Exception If an error occurs while processing the files
      */
 
+    /**
+     * Custom function used for the Bombe machine
+     */
+    public Machine createMachine(String... args) {
+        parseArguments(args);
+        return createMachine();
+    }
+
 
     public String run(String... args) throws Exception {
         try {
