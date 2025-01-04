@@ -21,6 +21,16 @@ public class EnigmaConfig {
         this.score = 0.0;
     }
 
+    // Clone constructor
+    public EnigmaConfig(EnigmaConfig config) {
+        this.rotorTypes = new byte[config.rotorTypes.length];
+        System.arraycopy(config.rotorTypes, 0, this.rotorTypes, 0, config.rotorTypes.length);
+        this.rotorPositions = new byte[config.rotorPositions.length];
+        System.arraycopy(config.rotorPositions, 0, this.rotorPositions, 0, config.rotorPositions.length);
+        this.plugboard = config.plugboard;
+        this.score = config.score;
+    }
+
     public int[] getRotorTypes() {
         int[] result = new int[rotorTypes.length];
         for (int i = 0; i < rotorTypes.length; i++) {
@@ -55,8 +65,37 @@ public class EnigmaConfig {
         return plugboard;
     }
 
-    public void setPlugboard(String plugboard) {
+    public boolean setPlugboard(String plugboard) {
         this.plugboard = plugboard;
+        return !containsDuplicateCharacters(plugboard);
+    }
+
+    public boolean addPlug(String plugboard) {
+        if (plugboard.length() != 2) {
+            return false;
+        }
+        if (plugboard.charAt(0) == plugboard.charAt(1)) {
+            return true;
+        }
+        String pair1 = plugboard;
+        String pair2 = "" + plugboard.charAt(1) + plugboard.charAt(0);
+        if (this.plugboard.contains(pair1) || this.plugboard.contains(pair2)) {
+            return true;
+        }
+        String newPlugboard = this.plugboard + ":" + plugboard;
+        this.plugboard = newPlugboard;
+        return !containsDuplicateCharacters(newPlugboard);
+    }
+
+    private boolean containsDuplicateCharacters(String plugboard) {
+        boolean[] charSet = new boolean[256];
+        for (char c : plugboard.toCharArray()) {
+            if (c != ':' && charSet[c]) {
+                return true;
+            }
+            charSet[c] = true;
+        }
+        return false;
     }
 
     public double getScore() {

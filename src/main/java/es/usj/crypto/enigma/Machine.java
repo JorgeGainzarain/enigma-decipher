@@ -1,6 +1,9 @@
 package es.usj.crypto.enigma;
 
+import es.usj.crypto.EnigmaConfig;
+
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,10 +44,10 @@ public class Machine {
     public static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     // Components of the Enigma machine
-    private final Plugboard plugboard;
-    private final Rotor rightRotor;
-    private final Rotor middleRotor;
-    private final Rotor leftRotor;
+    public Plugboard plugboard;
+    private Rotor rightRotor;
+    private Rotor middleRotor;
+    private Rotor leftRotor;
     private final Reflector reflector;
 
     /**
@@ -71,6 +74,15 @@ public class Machine {
         this.middleRotor = middleRotor;
         this.rightRotor = rightRotor;
         this.reflector = reflector;
+    }
+
+    // copy constructor
+    public Machine(Machine machine) {
+        this.plugboard = machine.plugboard;
+        this.leftRotor = machine.leftRotor;
+        this.middleRotor = machine.middleRotor;
+        this.rightRotor = machine.rightRotor;
+        this.reflector = machine.reflector;
     }
 
     /**
@@ -150,8 +162,7 @@ public class Machine {
 
     public char cipherCharacter(char c) {
         // Plugboard substitution
-        //char output = plugboard.getPlug(c);
-        char output = c; // Dont use plugboard substitution
+        char output = plugboard.getPlug(c);
 
         // DON'T Update the rotor positions after encrypting a character
 
@@ -168,10 +179,22 @@ public class Machine {
         output = middleRotor.backward(output);
         output = rightRotor.backward(output);
 
-        // Apply plugboard substitution again
-        //output = plugboard.getPlug(output);
-
+        // Return the character
         return output;
     }
 
+    public void applyConfig(EnigmaConfig config) {
+        EnigmaApp app = new EnigmaApp();
+        rightRotor = app.createRotor(config.getRotorTypes()[0], config.getRotorPositions()[0]);
+        middleRotor = app.createRotor(config.getRotorTypes()[1], config.getRotorPositions()[1]);
+        leftRotor = app.createRotor(config.getRotorTypes()[2], config.getRotorPositions()[2]);
+    }
+
+    public void setPlugboard(Map<Character, Character> plugboardSettings) {
+        StringBuilder plugboard = new StringBuilder();
+        for (Map.Entry<Character, Character> entry : plugboardSettings.entrySet()) {
+            plugboard.append(entry.getKey()).append(entry.getValue()).append(":");
+        }
+        this.plugboard = new Plugboard(plugboard.toString());
+    }
 }

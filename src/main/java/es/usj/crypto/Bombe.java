@@ -3,6 +3,7 @@ package es.usj.crypto;
 import es.usj.crypto.enigma.AlphabetCircle;
 import es.usj.crypto.enigma.EnigmaApp;
 import es.usj.crypto.enigma.Machine;
+import es.usj.crypto.utils.ProgressBar;
 
 import javax.swing.*;
 import java.util.*;
@@ -12,7 +13,7 @@ public class Bombe {
     private final Machine enigma;
     private final String ciphertext;
     private final String crib;
-    private final Map<Character, Set<Character>> letterConnections;
+    private final Map<Character, List<Map.Entry<Character, Integer>>> letterConnections;
     private final List<String> steps;
     private final Set<Map<String, Object>> loopSteps;
 
@@ -25,86 +26,28 @@ public class Bombe {
         this.letterConnections = buildMenu();
     }
 
-    private Map<Character, Set<Character>> buildMenu() {
-        Map<Character, Set<Character>> menu = new LinkedHashMap<>();
+    private Map<Character, List<Map.Entry<Character, Integer>>> buildMenu() {
+        Map<Character, List<Map.Entry<Character, Integer>>> menu = new LinkedHashMap<>();
 
         for (int i = 0; i < crib.length(); i++) {
             char plainChar = crib.charAt(i);
             char cipherChar = ciphertext.charAt(i);
+            int stepNumber = i + 1;
 
-            menu.putIfAbsent(plainChar, new HashSet<>());
-            menu.putIfAbsent(cipherChar, new HashSet<>());
+            menu.putIfAbsent(plainChar, new ArrayList<>());
+            menu.putIfAbsent(cipherChar, new ArrayList<>());
 
-            menu.get(plainChar).add(cipherChar);
-            menu.get(cipherChar).add(plainChar);
+            menu.get(plainChar).add(new AbstractMap.SimpleEntry<>(cipherChar, stepNumber));
+            menu.get(cipherChar).add(new AbstractMap.SimpleEntry<>(plainChar, stepNumber));
 
-            String step = "Step " + (i + 1) + ": " + plainChar + " <-> " + cipherChar;
+            String step = "Step " + stepNumber + ": " + plainChar + " <-> " + cipherChar;
             steps.add(step);
             System.out.println(step);
         }
 
-        findLoopSteps(menu);
         return menu;
     }
 
-    private void findLoopSteps(Map<Character, Set<Character>> menu) {
-        Set<Set<Character>> closedLoops = findClosedLoops(menu);
-        Set<String> uniqueMappings = new HashSet<>();
-
-        for (Set<Character> loop : closedLoops) {
-            for (Character c1 : loop) {
-                for (Character c2 : menu.get(c1)) {
-                    if (loop.contains(c2)) {
-                        char[] mapping = {c1, c2};
-                        Arrays.sort(mapping);
-                        String mappingStr = new String(mapping);
-
-                        if (!uniqueMappings.contains(mappingStr)) {
-                            uniqueMappings.add(mappingStr);
-                            int stepNumber = findStepNumber(c1, c2);
-                            Map<String, Object> loopStep = new HashMap<>();
-                            loopStep.put("numStep", stepNumber);
-                            loopStep.put("Mapping", mapping);
-                            loopSteps.add(loopStep);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private int findStepNumber(char c1, char c2) {
-        for (int i = 0; i < crib.length(); i++) {
-            if ((crib.charAt(i) == c1 && ciphertext.charAt(i) == c2) || (crib.charAt(i) == c2 && ciphertext.charAt(i) == c1)) {
-                return i + 1;
-            }
-        }
-        return -1;
-    }
-
-    private Set<Set<Character>> findClosedLoops(Map<Character, Set<Character>> menu) {
-        Set<Set<Character>> closedLoops = new HashSet<>();
-        for (char start : menu.keySet()) {
-            findClosedLoop(start, start, new HashSet<>(), new LinkedHashSet<>(), closedLoops, menu);
-        }
-        return closedLoops;
-    }
-
-    private void findClosedLoop(char start, char current, Set<Character> visited, Set<Character> path, Set<Set<Character>> closedLoops, Map<Character, Set<Character>> menu) {
-        if (visited.contains(current)) {
-            if (current == start && path.size() >= 3) {
-                closedLoops.add(new HashSet<>(path));
-            }
-            return;
-        }
-        visited.add(current);
-        path.add(current);
-        for (char next : menu.get(current)) {
-            findClosedLoop(start, next, visited, path, closedLoops, menu);
-        }
-        visited.remove(current);
-        path.remove(current);
-    }
 
     public Machine createMachine(EnigmaConfig config) {
         String[] args = {
@@ -120,6 +63,7 @@ public class Bombe {
         return new EnigmaApp().createMachine(args);
     }
 
+    /*
     public void visualizeConnections() {
         JFrame frame = new JFrame("Bombe Connections Visualization");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -128,13 +72,8 @@ public class Bombe {
         frame.setVisible(true);
     }
 
-    public List<String> getSteps() {
-        return steps;
-    }
+     */
 
-    public Set<Map<String, Object>> getLoopSteps() {
-        return loopSteps;
-    }
 
     public static void main(String[] args) {
         EnigmaConfig config = new EnigmaConfig(
@@ -150,99 +89,148 @@ public class Bombe {
 
         //bombe.visualizeConnections();
 
-        System.out.println("Mappings that form the loop:");
+        // Convert the map to a list of entries
+        List<Map.Entry<Character, List<Map.Entry<Character, Integer>>>> sortedConnections = new ArrayList<>(bombe.letterConnections.entrySet());
 
-        List<Map<String, Object>> steps = new ArrayList<>(bombe.getLoopSteps());
 
-        // Sort the mappings to form a continuous loop
-        List<Map<String, Object>> sortedSteps = new ArrayList<>();
-        if (!steps.isEmpty()) {
-            // Start with the first mapping
-            sortedSteps.add(steps.get(0));
-            steps.remove(0);
+        // Sort the list by the size of the value lists
+        sortedConnections.sort((entry1, entry2) -> Integer.compare(entry2.getValue().size(), entry1.getValue().size()));
 
-            // Continue until we've used all mappings
-            while (!steps.isEmpty()) {
-                Map<String, Object> lastStep = sortedSteps.get(sortedSteps.size() - 1);
-                char[] lastMapping = (char[]) lastStep.get("Mapping");
-                char lastChar = lastMapping[1];  // Get the second character of the last mapping
 
-                // Find the next mapping that starts with our last character
-                Map<String, Object> nextStep = null;
-                for (Map<String, Object> step : steps) {
-                    char[] mapping = (char[]) step.get("Mapping");
-                    if (mapping[0] == lastChar || mapping[1] == lastChar) {
-                        nextStep = step;
-                        // If we found it connecting to mapping[1], swap the characters to maintain the loop
-                        if (mapping[1] == lastChar) {
-                            char temp = mapping[0];
-                            mapping[0] = mapping[1];
-                            mapping[1] = temp;
+        // Print the sorted connections
+        for (Map.Entry<Character, List<Map.Entry<Character, Integer>>> entry : sortedConnections) {
+            char key = entry.getKey();
+            List<Map.Entry<Character, Integer>> value = entry.getValue();
+            System.out.println(key + " -> " + value);
+        }
+
+
+        System.out.println("-----------------");
+        System.out.println("Start processing the connections");
+
+
+        // Define a new config to store the mappings
+        EnigmaConfig newConfig = new EnigmaConfig(config);
+
+        char firstChar = sortedConnections.get(0).getKey();
+        List<Map.Entry<Character, Integer>> firstCharConnections = sortedConnections.get(0).getValue();
+
+        System.out.println("-----------------");
+        System.out.println("Mappings for character " + firstChar);
+
+        int numValid = 0;
+
+        int total = 5 * 4 * 3 * 26 * 26 * 26;
+        ProgressBar progressBar = new ProgressBar(total);
+
+        // iterate over all the possible rotor configurations
+        /*
+        for (int L = 1; L <= 5; L++) {
+            for (int M = 1; M <= 5; M++) {
+                if (L == M) continue;
+                for (int R = 1; R <= 5; R++) {
+                    if (R == L || R == M) continue;
+                    for (char LPos = 'A'; LPos <= 'Z'; LPos++) {
+                        for (char MPos = 'A'; MPos <= 'Z'; MPos++) {
+                            for (char RPos = 'A'; RPos <= 'Z'; RPos++) {
+                                newConfig.setRotorTypes(new int[]{L, M, R});
+                                newConfig.setRotorPositions(new char[]{LPos, MPos, RPos});
+
+         */
+
+
+                                char map = 'N'; // This will be a for iterating each character later....
+
+                                // Make a deduction that the cipherChar maps to 'N'
+                                newConfig.setPlugboard(firstChar + "" + map);
+
+                                boolean validDeduction = true;
+
+                                // Get the new mappings from this deduction
+                                for (Map.Entry<Character, Integer> entry : firstCharConnections) {
+                                    char cipherChar = entry.getKey();
+                                    int stepNumber = entry.getValue();
+                                    System.out.println("(X=" + stepNumber + "): \n" + firstChar + '☰' + map + " -> ?☰" + cipherChar);
+
+                                    try {
+                                        Machine currMachine = bombe.createMachine(newConfig);
+                                        currMachine.rotateRotors(stepNumber);
+                                        char newChar = currMachine.cipherCharacter(firstChar);
+                                        System.out.println("" + firstChar + '☰' + map + " -> " + newChar + '☰' + cipherChar);
+                                        newConfig.addPlug(newChar + "" + cipherChar);
+                                    } catch (AssertionError e) {
+                                        System.out.println("Incongruent mapping detected, discarding...");
+                                        validDeduction = false;
+                                        numValid++;
+                                        break;
+                                    }
+                                }
+                                System.out.println("Deduction is " + (validDeduction ? "valid" : "invalid"));
+        /*
+                                progressBar.add(1);
+                            }
                         }
-                        break;
                     }
                 }
-
-                if (nextStep != null) {
-                    sortedSteps.add(nextStep);
-                    steps.remove(nextStep);
-                }
             }
         }
+        System.out.println("Number of valid deductions: " + numValid);
 
-        // Print the sorted loop
+         */
 
-        sortedSteps.forEach(step -> {
-            char[] mapping = (char[]) step.get("Mapping");
-            System.out.println("Mapping: " + mapping[0] + " <-> " + mapping[1]);
-        });
+        /*
+        System.out.println("-----------------");
+        System.out.println("Mappings I");
 
-        // Rest of the code remains the same
-        Map<Integer, Machine> machines = new HashMap<>();
-        for (Map<String, Object> step : sortedSteps) {
-            Machine machine = bombe.createMachine(config);
-            int numStep = (int) step.get("numStep");
-            System.out.println("Rotating rotors for step " + numStep);
-            machine.rotateRotors(numStep);
-            machines.put(numStep, machine);
-        }
+        char map1 = 'N';
+        Machine machine = bombe.createMachine(config);
+        machine.rotateRotors(1);
+        char c1 = machine.cipherCharacter(map1);
+        System.out.println("1 -> " + c1);
 
+        Machine machine6 = bombe.createMachine(config);
+        machine6.rotateRotors(6);
+        char c6 = machine6.cipherCharacter(map1);
+        System.out.println("6 -> " + c6);
 
+        Machine machine8 = bombe.createMachine(config);
+        machine8.rotateRotors(8);
+        char c8 = machine8.cipherCharacter(map1);
+        System.out.println("8 -> " + c8);
 
-        int numStep1 = (int) sortedSteps.get(0).get("numStep");
-        Machine machine1 = machines.get(numStep1);
+        Machine machine12 = bombe.createMachine(config);
+        machine12.rotateRotors(12);
+        char c12 = machine12.cipherCharacter(map1);
+        System.out.println("12 -> " + c12);
 
-        int numStep2 = (int) sortedSteps.get(1).get("numStep");
-        Machine machine2 = machines.get(numStep2);
+        System.out.println("-----------------");
+        System.out.println("Mappings K");
 
-        int numStep3 = (int) sortedSteps.get(2).get("numStep");
-        Machine machine3 = machines.get(numStep3);
+        char map2 = c1;
+        Machine machine7 = bombe.createMachine(config);
+        machine7.rotateRotors(7);
+        char c7 = machine7.cipherCharacter(map2);
+        System.out.println("7 -> " + c7);
 
-        char[] mapping1 = (char[]) sortedSteps.get(0).get("Mapping");
-        char[] mapping2 = (char[]) sortedSteps.get(1).get("Mapping");
-        char[] mapping3 = (char[]) sortedSteps.get(2).get("Mapping");
+        System.out.println("-----------------");
+        System.out.println("Mappings D");
 
-        System.out.println("Initial character: " + mapping1[0]);
+        char map3 = c8;
+        Machine machine2 = bombe.createMachine(config);
+        machine2.rotateRotors(2);
+        char c2 = machine2.cipherCharacter(map3);
+        System.out.println("2 -> " + c2);
 
-        String sequence = mapping1[0] + "->" + mapping2[0] + "->"  + mapping3[0];
-        System.out.println("Sequence: " + sequence);
+        System.out.println("-----------------");
+        System.out.println("Mappings G");
 
-        for (char map = 'A'; map <= 'Z'; map++) {
-            System.out.println("Mapping " + mapping1[0] + " -> " + map);
+        char map4 = c2;
 
-            // Pass the mapped character through the machines
-            char c1 = machine1.cipherCharacter(map);
-            char c2 = machine2.cipherCharacter(c1);
-            char c3 = machine3.cipherCharacter(c2);
+        Machine machine10 = bombe.createMachine(config);
+        machine10.rotateRotors(10);
+        char c13 = machine10.cipherCharacter(map4);
+        System.out.println("10 -> " + c13);
 
-            System.out.println("Result: " + c3);
-            if (c3 == map) {
-                System.out.println("Found match: ");
-                System.out.println("Mapping: ");
-                System.out.println(mapping2[0] + " -> " + c1);
-                System.out.println(mapping3[0] + " -> " + c2);
-                System.out.println(mapping1[0] + " -> " + c3);
-            }
-        }
+         */
     }
 }

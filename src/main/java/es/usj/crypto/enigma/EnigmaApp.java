@@ -174,7 +174,7 @@ public class EnigmaApp {
      * @param initialPosition The initial position of the rotor (A-Z)
      * @return A new Rotor instance
      */
-    private Rotor createRotor(int rotorNumber, char initialPosition) {
+    Rotor createRotor(int rotorNumber, char initialPosition) {
         return new Rotor(RotorConfiguration.getRotorConfiguration(rotorNumber), initialPosition);
     }
 
