@@ -120,11 +120,11 @@ public class Bombe {
 
         int numValid = 0;
 
+
         int total = 5 * 4 * 3 * 26 * 26 * 26;
         ProgressBar progressBar = new ProgressBar(total);
 
         // iterate over all the possible rotor configurations
-        /*
         for (int L = 1; L <= 5; L++) {
             for (int M = 1; M <= 5; M++) {
                 if (L == M) continue;
@@ -136,37 +136,93 @@ public class Bombe {
                                 newConfig.setRotorTypes(new int[]{L, M, R});
                                 newConfig.setRotorPositions(new char[]{LPos, MPos, RPos});
 
-         */
-
 
                                 char map = 'N'; // This will be a for iterating each character later....
 
                                 // Make a deduction that the cipherChar maps to 'N'
                                 newConfig.setPlugboard(firstChar + "" + map);
 
+                                List<Character> testedChars = new ArrayList<>();
+                                testedChars.add(firstChar);
+
+                                List<char[]> deductedMappings = new ArrayList<>();
+
                                 boolean validDeduction = true;
 
-                                // Get the new mappings from this deduction
-                                for (Map.Entry<Character, Integer> entry : firstCharConnections) {
-                                    char cipherChar = entry.getKey();
-                                    int stepNumber = entry.getValue();
-                                    System.out.println("(X=" + stepNumber + "): \n" + firstChar + '☰' + map + " -> ?☰" + cipherChar);
+                                validDeduction = findMappingsFromDeduction(
+                                        firstCharConnections,
+                                        firstChar,
+                                        map,
+                                        bombe,
+                                        newConfig,
+                                        deductedMappings);
+                                //System.out.println("Deduction is " + (validDeduction ? "valid" : "invalid"));
 
-                                    try {
-                                        Machine currMachine = bombe.createMachine(newConfig);
-                                        currMachine.rotateRotors(stepNumber);
-                                        char newChar = currMachine.cipherCharacter(firstChar);
-                                        System.out.println("" + firstChar + '☰' + map + " -> " + newChar + '☰' + cipherChar);
-                                        newConfig.addPlug(newChar + "" + cipherChar);
-                                    } catch (AssertionError e) {
-                                        System.out.println("Incongruent mapping detected, discarding...");
-                                        validDeduction = false;
-                                        numValid++;
-                                        break;
+
+                                // At this point, we already discarded some of the invalid deductions, however this is still not enough
+                                // Now, for each mapping made, we have to explore its connections and make sure the new mappings are valid too
+
+                                List<Map.Entry<Character, List<Map.Entry<Character, Integer>>>> finalConnections = new ArrayList<>();
+
+                                //System.out.println("Plugs to test next.");
+                                for (char[] plug : deductedMappings) {
+                                    char char1 = plug[0];
+                                    char char2 = plug[1];
+                                    //System.out.println(plug);
+
+                                    // Find the connections for each character
+                                    List<Map.Entry<Character, Integer>> connections1 = bombe.letterConnections.get(char1);
+                                    List<Map.Entry<Character, Integer>> connections2 = char1 == char2 ? connections1 : bombe.letterConnections.get(char2);
+
+                                    if (connections1 == null) connections1 = new ArrayList<>();
+                                    if (connections2 == null) connections2 = new ArrayList<>();
+
+                                    connections1 = connections1.stream().filter(entry -> !testedChars.contains(entry.getKey())).toList();
+                                    if (char1 != char2) {
+                                        connections2 = connections2.stream().filter(entry -> !testedChars.contains(entry.getKey())).toList();
+                                    }
+
+                                    if (!connections1.isEmpty()) {
+                                        finalConnections.add(new AbstractMap.SimpleEntry<>(char1, connections1));
+                                        //System.out.println("Connections for " + char1 + ": " + connections1);
+                                    }
+
+                                    if (char1 != char2 && !connections2.isEmpty()) {
+                                        finalConnections.add(new AbstractMap.SimpleEntry<>(char2, connections2));
+                                        //System.out.println("Connections for " + char2 + ": " + connections2);
                                     }
                                 }
-                                System.out.println("Deduction is " + (validDeduction ? "valid" : "invalid"));
-        /*
+
+                                // Now we have to iterate over the final connections and make the deductions
+                                //System.out.println("Final connections: ");
+                                for (Map.Entry<Character, List<Map.Entry<Character, Integer>>> entry : finalConnections) {
+                                    char key = entry.getKey();
+                                    List<Map.Entry<Character, Integer>> connections = entry.getValue();
+                                    //System.out.println(key + " -> " + connections);
+
+                                    // Find the map from the deductedMappings list that corresponds to the current character
+                                    map = deductedMappings.stream()
+                                            .filter(plug -> plug[0] == key || plug[1] == key)
+                                            .map(plug -> plug[0] == key ? plug[1] : plug[0])
+                                            .findFirst()
+                                            .orElseThrow();
+
+
+                                    validDeduction = findMappingsFromDeduction(
+                                            connections,
+                                            key,
+                                            map,
+                                            bombe,
+                                            newConfig,
+                                            deductedMappings);
+                                }
+
+                                //System.out.println("Deduction is " + (validDeduction ? "valid" : "invalid"));
+
+                                if (validDeduction) {
+                                    numValid++;
+                                }
+
                                 progressBar.add(1);
                             }
                         }
@@ -176,61 +232,38 @@ public class Bombe {
         }
         System.out.println("Number of valid deductions: " + numValid);
 
-         */
+    }
 
-        /*
-        System.out.println("-----------------");
-        System.out.println("Mappings I");
+    private static boolean findMappingsFromDeduction(
+            List<Map.Entry<Character,
+            Integer>> charConnections,
+            char currChar,
+            char map,
+            Bombe bombe, EnigmaConfig newConfig,
+            List<char[]> deductedMappings)
+    {
+        // Get the new mappings from this deduction
+        boolean validDeduction = true;
+        //int numValid = 0;
+        for (Map.Entry<Character, Integer> entry : charConnections) {
+            char cipherChar = entry.getKey();
+            int stepNumber = entry.getValue();
+            //System.out.println("(X=" + stepNumber + "): \n" + currChar + '☰' + map + " -> ?☰" + cipherChar);
 
-        char map1 = 'N';
-        Machine machine = bombe.createMachine(config);
-        machine.rotateRotors(1);
-        char c1 = machine.cipherCharacter(map1);
-        System.out.println("1 -> " + c1);
-
-        Machine machine6 = bombe.createMachine(config);
-        machine6.rotateRotors(6);
-        char c6 = machine6.cipherCharacter(map1);
-        System.out.println("6 -> " + c6);
-
-        Machine machine8 = bombe.createMachine(config);
-        machine8.rotateRotors(8);
-        char c8 = machine8.cipherCharacter(map1);
-        System.out.println("8 -> " + c8);
-
-        Machine machine12 = bombe.createMachine(config);
-        machine12.rotateRotors(12);
-        char c12 = machine12.cipherCharacter(map1);
-        System.out.println("12 -> " + c12);
-
-        System.out.println("-----------------");
-        System.out.println("Mappings K");
-
-        char map2 = c1;
-        Machine machine7 = bombe.createMachine(config);
-        machine7.rotateRotors(7);
-        char c7 = machine7.cipherCharacter(map2);
-        System.out.println("7 -> " + c7);
-
-        System.out.println("-----------------");
-        System.out.println("Mappings D");
-
-        char map3 = c8;
-        Machine machine2 = bombe.createMachine(config);
-        machine2.rotateRotors(2);
-        char c2 = machine2.cipherCharacter(map3);
-        System.out.println("2 -> " + c2);
-
-        System.out.println("-----------------");
-        System.out.println("Mappings G");
-
-        char map4 = c2;
-
-        Machine machine10 = bombe.createMachine(config);
-        machine10.rotateRotors(10);
-        char c13 = machine10.cipherCharacter(map4);
-        System.out.println("10 -> " + c13);
-
-         */
+            try {
+                Machine currMachine = bombe.createMachine(newConfig);
+                currMachine.rotateRotors(stepNumber);
+                char newChar = currMachine.cipherCharacter(currChar);
+                //System.out.println("" + currChar + '☰' + map + " -> " + newChar + '☰' + cipherChar);
+                deductedMappings.add(new char[]{newChar, cipherChar});
+                newConfig.addPlug(newChar + "" + cipherChar);
+            } catch (AssertionError e) {
+                //System.out.println("Incongruent mapping detected, discarding...");
+                validDeduction = false;
+                //numValid++;
+                break;
+            }
+        }
+        return validDeduction;
     }
 }
