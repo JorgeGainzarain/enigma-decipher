@@ -1,6 +1,7 @@
 package es.usj.crypto;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 public class EnigmaConfig {
     private byte[] rotorTypes;
@@ -65,37 +66,63 @@ public class EnigmaConfig {
         return plugboard;
     }
 
-    public boolean setPlugboard(String plugboard) {
+    public void setPlugboard(String plugboard) {
+        if (Objects.equals(plugboard, "")) {
+            this.plugboard = "";
+            return;
+        }
+        if (containsDuplicateCharacters(plugboard)) {
+            throw new AssertionError("Plugboard contains duplicate characters");
+        }
+        else  if (plugboard.charAt(0) == plugboard.charAt(1)) {
+            return;
+        }
         this.plugboard = plugboard;
-        return !containsDuplicateCharacters(plugboard);
     }
 
-    public boolean addPlug(String plugboard) {
-        if (plugboard.length() != 2) {
-            return false;
+    public void addPlug(String plug) {
+        if (plug.length() != 2) {
+            throw new AssertionError("Plugboard length must be 2");
         }
-        if (plugboard.charAt(0) == plugboard.charAt(1)) {
-            return true;
-        }
-        String pair1 = plugboard;
-        String pair2 = "" + plugboard.charAt(1) + plugboard.charAt(0);
+        String pair1 = plug;
+        String pair2 = "" + plug.charAt(1) + plug.charAt(0);
         if (this.plugboard.contains(pair1) || this.plugboard.contains(pair2)) {
-            return true;
+           return;
         }
-        String newPlugboard = this.plugboard + ":" + plugboard;
-        this.plugboard = newPlugboard;
-        return !containsDuplicateCharacters(newPlugboard);
+        String newPlugboard1 = this.plugboard + plug.charAt(0);
+        String newPlugboard2 = this.plugboard + plug.charAt(1);
+        if (containsDuplicateCharacters(newPlugboard1) || containsDuplicateCharacters(newPlugboard2)) {
+            throw new AssertionError("Plugboard contains duplicate characters");
+        }
+        else if (plug.charAt(0) == plug.charAt(1)) {
+            return;
+        }
+        if (!this.plugboard.isEmpty()) {
+            this.plugboard += ":";
+        }
+        this.plugboard += plug;
     }
 
     private boolean containsDuplicateCharacters(String plugboard) {
-        boolean[] charSet = new boolean[256];
-        for (char c : plugboard.toCharArray()) {
-            if (c != ':' && charSet[c]) {
+        for (int i = 0; i < plugboard.length(); i++) {
+            char c = plugboard.charAt(i);
+            if (c != ':' && plugboard.chars().filter(ch -> ch == c).count() > 1) {
                 return true;
             }
-            charSet[c] = true;
         }
         return false;
+    }
+
+    public static void main(String[] args) {
+        int[] rotorTypes = {1, 2, 3};
+        char[] rotorPositions = {'A', 'A', 'A'};
+        String plugboard = "";
+
+        EnigmaConfig config = new EnigmaConfig(rotorTypes, rotorPositions, plugboard);
+        config.setPlugboard("AB:CD:EF");
+        config.addPlug("FF");
+
+        System.out.println(config);
     }
 
     public double getScore() {

@@ -37,7 +37,7 @@ public class Plugboard {
             for (int i = 0; i < Machine.ALPHABET.length(); i++) {
                 char c = Machine.ALPHABET.charAt(i);
                 long count = input.chars().filter(ch -> ch == c).count();
-                assertTrue("Character " + c + " is expected to be 0 or 1 time, not " + count, count == 0 || count == 1);
+                assertTrue("Character " + c + " in input \"" + input + "\" is expected to be 0 or 1 time, not " + count, count == 0 || count == 1);
             }
 
             // Validate that exactly 10 pairs of characters are provided
