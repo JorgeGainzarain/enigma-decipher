@@ -16,7 +16,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static es.usj.crypto.Main.generatePlugboardConfig;
+
 public class Bombe {
+    private static final ConcurrentLinkedQueue<Machine> machinePool = new ConcurrentLinkedQueue<>();
+
     private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private final Machine enigma;
     private final String ciphertext;
@@ -25,22 +29,39 @@ public class Bombe {
     private final List<String> steps;
     private final Set<Map<String, Object>> loopSteps;
     private final ConcurrentLinkedQueue<EnigmaConfig> validConfigurations;
+    private final int initialStep;
 
+    public Machine getMachineFromPool(EnigmaConfig config) {
+        Machine machine = machinePool.poll();
+        if (machine == null) {
+            machine = createMachine(config);
+        }
+        else {
+            machine.setRotors(config.getRotorTypes(), config.getRotorPositions());
+            machine.setPlugboard(config.getPlugboard());
+        }
+        return machine;
+    }
 
-    public Bombe(EnigmaConfig config, String ciphertext, String crib) {
-        this.enigma = createMachine(config);
+    public void returnMachineToPool(Machine machine) {
+        machinePool.offer(machine);
+    }
+
+    public Bombe(EnigmaConfig config, String ciphertext, String crib, int initialStep) {
+        this.enigma = getMachineFromPool(config);
         this.ciphertext = ciphertext;
         this.crib = crib;
         this.steps = new ArrayList<>();
         this.loopSteps = new HashSet<>();
         this.letterConnections = buildMenu();
         this.validConfigurations = new ConcurrentLinkedQueue<>();
+        this.initialStep = initialStep;
     }
 
     private Map<Character, List<Map.Entry<Character, Integer>>> buildMenu() {
         Map<Character, List<Map.Entry<Character, Integer>>> menu = new LinkedHashMap<>();
 
-        for (int i = 0; i < crib.length(); i++) {
+        for (int i = initialStep; i < crib.length(); i++) {
             char plainChar = crib.charAt(i);
             char cipherChar = ciphertext.charAt(i);
             int stepNumber = i + 1;
@@ -104,6 +125,7 @@ public class Bombe {
 
             // Create a list to hold all futures
             List<CompletableFuture<Void>> futures = new ArrayList<>();
+
 
             // Process each possible mapping from 'A' to 'Z' in parallel
             for (char mapping = 'A'; mapping <= 'Z'; mapping++) {
@@ -173,6 +195,9 @@ public class Bombe {
         List<char[]> deductedMappings = new ArrayList<>();
         char[] positions = ALPHABET.toCharArray();
 
+        //System.out.println("Processing rotors" + combo + "mapping " + firstChar + " -> " + mapping);
+
+
         for (char LPos : positions) {
             for (char MPos : positions) {
                 for (char RPos : positions) {
@@ -212,7 +237,8 @@ public class Bombe {
         EnigmaConfig attemptConfig = new EnigmaConfig(config);
         attemptConfig.setRotorPositions(positions);
         // Use the current mapping instead of hardcoded 'N'
-        attemptConfig.setPlugboard(firstChar + "" + mapping);
+        attemptConfig.setPlugboard("");
+        attemptConfig.addPlug(firstChar + "" + mapping);
 
         testedChars.add(firstChar);
 
@@ -317,44 +343,6 @@ public class Bombe {
         return finalConnections;
     }
 
-    public static void main(String[] args) {
-        EnigmaConfig config = new EnigmaConfig(
-                new int[]{1, 2, 3},
-                new char[]{'A', 'A', 'A'},
-                ""
-        );
-
-        String ciphertext = "KAHYCFKDTCUSGH";
-        String crib = "IDENTIFICATION";
-
-        Bombe bombe = new Bombe(config, ciphertext, crib);
-
-        List<Map.Entry<Character, List<Map.Entry<Character, Integer>>>> sortedConnections =
-                new ArrayList<>(bombe.letterConnections.entrySet());
-        sortedConnections.sort((e1, e2) ->
-                Integer.compare(e2.getValue().size(), e1.getValue().size()));
-
-        char firstChar = sortedConnections.get(0).getKey();
-        List<Map.Entry<Character, Integer>> firstCharConnections =
-                sortedConnections.get(0).getValue();
-
-        System.out.println("-----------------");
-        System.out.println("Mappings for character " + firstChar);
-
-        List<EnigmaConfig> validConfigs = bombe.processConnections(config, firstChar, firstCharConnections);
-        System.out.println("\nNumber of valid configurations: " + validConfigs.size());
-
-        Path cipherTextPath = Paths.get("data/cipher_text_test.txt");
-        EnigmaManager manager = new EnigmaManager(cipherTextPath);
-        manager.scoreConfigurations(validConfigs, true);
-        manager.shutdown();
-
-        validConfigs.stream()
-                .sorted(Comparator.comparingDouble(EnigmaConfig::getScore).reversed())
-                .limit(100)
-                .forEach(System.out::println);
-    }
-
     private static boolean findMappingsFromDeduction(
             List<Map.Entry<Character,
                     Integer>> charConnections,
@@ -370,8 +358,8 @@ public class Bombe {
             int stepNumber = entry.getValue();
             //System.out.println("(X=" + stepNumber + "): \n" + currChar + '☰' + map + " -> ?☰" + cipherChar);
 
+            Machine currMachine = bombe.getMachineFromPool(newConfig);
             try {
-                Machine currMachine = bombe.createMachine(newConfig);
                 currMachine.rotateRotors(stepNumber);
                 char newChar = currMachine.cipherCharacter(currChar);
                 //System.out.println("" + currChar + '☰' + map + " -> " + newChar + '☰' + cipherChar);
@@ -382,7 +370,166 @@ public class Bombe {
                 //numValid++;
                 return false;
             }
+            finally {
+                bombe.returnMachineToPool(currMachine);
+            }
         }
         return true;
     }
+
+    public static void main(String[] args) {
+        EnigmaConfig config = new EnigmaConfig(
+                new int[]{1, 2, 3},
+                new char[]{'A', 'A', 'A'},
+                ""
+        );
+
+        int[] rotorTypes = {4, 3, 5};
+        char[] rotorPositions = {'V', 'H', 'Z'};
+        String plugboard = "ZT:AY:BH:RE:GU:WI:XP:OQ:VK:LM";
+        EnigmaConfig correctConfig = new EnigmaConfig(rotorTypes, rotorPositions, plugboard);
+
+        String ciphertext = "DTJLEEEQWOUTGO";
+        String crib = "IDENTIFICATION";
+
+        Bombe bombe = new Bombe(config, ciphertext, crib, 0);
+
+        // Sort connections by size to start with most connected letter
+        List<Map.Entry<Character, List<Map.Entry<Character, Integer>>>> sortedConnections =
+                new ArrayList<>(bombe.letterConnections.entrySet());
+        sortedConnections.sort((e1, e2) ->
+                Integer.compare(e2.getValue().size(), e1.getValue().size()));
+
+        char firstChar = sortedConnections.get(0).getKey();
+        List<Map.Entry<Character, Integer>> firstCharConnections =
+                sortedConnections.get(0).getValue();
+
+        System.out.println("-----------------");
+        System.out.println("Mappings for character " + firstChar);
+
+        // Get initial valid configurations
+        List<EnigmaConfig> validConfigs = bombe.processConnections(config, firstChar, firstCharConnections);
+        System.out.println("\nNumber of valid configurations: " + validConfigs.size());
+
+        Path cipherTextPath = Paths.get("data/cipher_text_test.txt");
+        EnigmaManager manager = new EnigmaManager(Paths.get("data/plain_text.txt"));
+        manager.cipherInitialText(correctConfig);
+        manager.scoreConfigurations(validConfigs, true);
+
+        // Get sorted valid configurations
+        validConfigs = validConfigs.stream()
+                .sorted(Comparator.comparingDouble(EnigmaConfig::getScore).reversed())
+                .toList();
+
+        // Get initial top 100 configurations
+        List<EnigmaConfig> top100Configs = validConfigs.stream()
+                .limit(5000)
+                .toList();
+
+        //System.out.println("\nTop 100 configurations:");
+        //top100Configs.forEach(System.out::println);
+
+
+        List<EnigmaConfig> filteredConfigs = validConfigs.stream()
+                .filter(config1 -> Arrays.equals(config1.getRotorTypes(), correctConfig.getRotorTypes()) &&
+                        Arrays.equals(config1.getRotorPositions(), correctConfig.getRotorPositions()))
+                .toList();
+
+        System.out.println("\nCorrect configuration found: " + filteredConfigs.size());
+
+        if (filteredConfigs.isEmpty()) {
+            top100Configs.forEach(System.out::println);
+        }
+        else if (filteredConfigs.size() > 1) {
+            System.out.println("Multiple correct configurations found:");
+            filteredConfigs.forEach(System.out::println);
+        }
+        else {
+            System.out.println("Correct configuration:");
+            System.out.println(filteredConfigs.get(0));
+        }
+
+        // Show top 100
+        //top100Configs.forEach(System.out::println);
+
+        /*
+
+        // Keep track of configurations that reach 10 plugs
+        List<EnigmaConfig> completedConfigs = new ArrayList<>();
+
+        // Continue iterating until we have at least 10 configurations with 10 plugs
+        while (completedConfigs.size() < 10) {
+            List<EnigmaConfig> allNewConfigs = new ArrayList<>();
+
+            // Generate new configurations for each of the top 100
+            for (EnigmaConfig baseConfig : top100Configs) {
+                // Skip if this config already has 10 plugs
+                if (baseConfig.getPlugboard().split(":").length >= 10) {
+                    completedConfigs.add(baseConfig);
+                    continue;
+                }
+
+                // Generate possible new plugs
+                List<char[]> plugs = generatePlugboardConfig();
+
+                // Create new configurations with additional plugs
+                for (char[] plug : plugs) {
+                    EnigmaConfig newConfig = new EnigmaConfig(baseConfig);
+                    try {
+                        newConfig.addPlug(plug[0] + "" + plug[1]);
+                        allNewConfigs.add(newConfig);
+                    } catch (AssertionError e) {
+                        // Skip invalid plug combinations
+                        continue;
+                    }
+                }
+            }
+
+            // If we have enough completed configs, or no new configs to try, break
+            if (completedConfigs.size() >= 10 || allNewConfigs.isEmpty()) {
+                break;
+            }
+
+            // Score all new configurations together
+            manager.scoreConfigurations(allNewConfigs, true);
+
+            // Select top 100 from all new configurations
+            top100Configs = allNewConfigs.stream()
+                    .sorted(Comparator.comparingDouble(EnigmaConfig::getScore).reversed())
+                    .limit(5000)
+                    .toList();
+        }
+
+        // Display results
+        System.out.println("\nFound " + completedConfigs.size() + " configurations with 10 plugs:");
+        completedConfigs.stream()
+                .sorted(Comparator.comparingDouble(EnigmaConfig::getScore).reversed())
+                .limit(10)
+                .forEach(config1 -> {
+                    System.out.println("\nConfiguration:");
+                    System.out.println(config1);
+                    System.out.println("Score: " + config1.getScore());
+                });
+
+         */
+
+        manager.shutdown();
+    }
+
+
+
+    private static List<char[]> generatePlugboardConfig() {
+        List<char[]> plugboards = new ArrayList<>();
+        char[] alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".toCharArray();
+
+        for (int i = 0; i < alphabet.length; i++) {
+            for (int j = i + 1; j < alphabet.length; j++) {
+                plugboards.add(new char[]{alphabet[i], alphabet[j]});
+            }
+        }
+        return plugboards;
+    }
+
+
+
 }

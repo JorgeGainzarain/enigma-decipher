@@ -33,6 +33,8 @@ import java.util.Optional;
 @SpringBootApplication
 public class EnigmaApp {
 
+    public static EnigmaApp instance = new EnigmaApp();
+
     private static final Logger LOG = LoggerFactory.getLogger(EnigmaApp.class);
     private static final int MIN_ROTOR = 1;
     private static final int MAX_ROTOR = 5;

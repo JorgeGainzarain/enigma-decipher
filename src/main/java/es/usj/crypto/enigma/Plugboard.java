@@ -1,7 +1,9 @@
 package es.usj.crypto.enigma;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -34,10 +36,11 @@ public class Plugboard {
 
         if (!input.isEmpty()) {
             // Validate that no character from the ALPHABET appears more than once in the input
-            for (int i = 0; i < Machine.ALPHABET.length(); i++) {
-                char c = Machine.ALPHABET.charAt(i);
-                long count = input.chars().filter(ch -> ch == c).count();
-                assertTrue("Character " + c + " in input \"" + input + "\" is expected to be 0 or 1 time, not " + count, count == 0 || count == 1);
+            Set<Character> seenCharacters = new HashSet<>();
+            for (char c : input.toCharArray()) {
+                if (Machine.ALPHABET.indexOf(c) >= 0) {
+                    assertTrue("Character " + c + " in input \"" + input + "\" appears more than once", seenCharacters.add(c));
+                }
             }
 
             // Validate that exactly 10 pairs of characters are provided
