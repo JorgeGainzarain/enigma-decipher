@@ -1,16 +1,27 @@
-package es.usj.crypto;
+package es.usj.crypto.utils;
 
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * Represents the configuration of an Enigma machine, including rotor types, rotor positions, and plugboard settings.
+ * Note: The rotorTypes and rotorPositions go from left to right, 0 being the leftmost rotor.
+ */
 public class EnigmaConfig {
     private byte[] rotorTypes;
     private byte[] rotorPositions;
     private String plugboard;
     private double score;
 
+    /**
+     * Constructs an EnigmaConfig with the specified rotor types, rotor positions, and plugboard settings.
+     *
+     * @param rotorTypes    An array of integers representing the types of rotors.
+     * @param rotorPositions An array of characters representing the initial positions of the rotors.
+     * @param plugboard     A string representing the plugboard settings.
+     */
     public EnigmaConfig(int[] rotorTypes, char[] rotorPositions, String plugboard) {
         this.rotorTypes = new byte[rotorTypes.length];
         for (int i = 0; i < rotorTypes.length; i++) {
@@ -24,7 +35,11 @@ public class EnigmaConfig {
         this.score = 0.0;
     }
 
-    // Clone constructor
+    /**
+     * Clone constructor.
+     *
+     * @param config The EnigmaConfig to clone.
+     */
     public EnigmaConfig(EnigmaConfig config) {
         this.rotorTypes = new byte[config.rotorTypes.length];
         System.arraycopy(config.rotorTypes, 0, this.rotorTypes, 0, config.rotorTypes.length);
@@ -34,6 +49,11 @@ public class EnigmaConfig {
         this.score = config.score;
     }
 
+    /**
+     * Gets the rotor types.
+     *
+     * @return An array of integers representing the rotor types.
+     */
     public int[] getRotorTypes() {
         int[] result = new int[rotorTypes.length];
         for (int i = 0; i < rotorTypes.length; i++) {
@@ -42,6 +62,11 @@ public class EnigmaConfig {
         return result;
     }
 
+    /**
+     * Sets the rotor types.
+     *
+     * @param rotorTypes An array of integers representing the rotor types.
+     */
     public void setRotorTypes(int[] rotorTypes) {
         this.rotorTypes = new byte[rotorTypes.length];
         for (int i = 0; i < rotorTypes.length; i++) {
@@ -49,6 +74,11 @@ public class EnigmaConfig {
         }
     }
 
+    /**
+     * Gets the rotor positions.
+     *
+     * @return An array of characters representing the rotor positions.
+     */
     public char[] getRotorPositions() {
         char[] result = new char[rotorPositions.length];
         for (int i = 0; i < rotorPositions.length; i++) {
@@ -57,6 +87,11 @@ public class EnigmaConfig {
         return result;
     }
 
+    /**
+     * Sets the rotor positions.
+     *
+     * @param rotorPositions An array of characters representing the rotor positions.
+     */
     public void setRotorPositions(char[] rotorPositions) {
         this.rotorPositions = new byte[rotorPositions.length];
         for (int i = 0; i < rotorPositions.length; i++) {
@@ -64,23 +99,20 @@ public class EnigmaConfig {
         }
     }
 
+    /**
+     * Gets the plugboard settings.
+     *
+     * @return A string representing the plugboard settings.
+     */
     public String getPlugboard() {
         return plugboard;
     }
 
-    public char findMapping(char c) {
-        String[] pairs = plugboard.split(":");
-        for (String pair : pairs) {
-            if (pair.charAt(0) == c) {
-                return pair.charAt(1);
-            }
-            else if (pair.charAt(1) == c) {
-                return pair.charAt(0);
-            }
-        }
-        return c;
-    }
-
+    /**
+     * Sets the plugboard settings.
+     *
+     * @param plugboard A string representing the plugboard settings.
+     */
     public void setPlugboard(String plugboard) {
         if (Objects.equals(plugboard, "")) {
             this.plugboard = "";
@@ -89,12 +121,22 @@ public class EnigmaConfig {
         if (containsDuplicateCharacters(plugboard)) {
             throw new AssertionError("Plugboard contains duplicate characters");
         }
-        else  if (plugboard.charAt(0) == plugboard.charAt(1)) {
-            return;
-        }
         this.plugboard = plugboard;
     }
 
+    /**
+     * Adds a plug to the plugboard.
+     *
+     * @param plug The plug to add.
+     * @return {@code true} if the plug was added, otherwise {@code false}.
+     * @throws AssertionError if the plugboard length is not 2 or if the plugboard contains duplicate characters. (This is used to check for invalid plugboard settings)
+     * Workflow:
+     * - If the plugboard already contains the plug, return true. (This is not invalid, but it shouldnt be added again)
+     * - If the plugboard contains duplicate characters with different mappings than the new plug, throw an AssertionError. (This means the plugboard is invalid)
+     * - If the plugboard is not empty, add a colon separator.
+     * - Add the plug to the plugboard.
+     * - Return true.
+     */
     public boolean addPlug(String plug) {
         if (plug.length() != 2) {
             throw new AssertionError("Plugboard length must be 2");
@@ -109,9 +151,6 @@ public class EnigmaConfig {
         if (containsDuplicateCharacters(newPlugboard1) || containsDuplicateCharacters(newPlugboard2)) {
             throw new AssertionError("Plugboard contains duplicate characters");
         }
-        else if (plug.charAt(0) == plug.charAt(1)) {
-            return true;
-        }
         if (!this.plugboard.isEmpty()) {
             this.plugboard += ":";
         }
@@ -119,6 +158,12 @@ public class EnigmaConfig {
         return true;
     }
 
+    /**
+     * Checks if the plugboard contains duplicate characters.
+     *
+     * @param plugboard A string representing the plugboard settings.
+     * @return {@code true} if the plugboard contains duplicate characters, otherwise {@code false}.
+     */
     public boolean containsDuplicateCharacters(String plugboard) {
         Set<Character> seen = new HashSet<>();
         for (char c : plugboard.toCharArray()) {
@@ -129,22 +174,20 @@ public class EnigmaConfig {
         return false;
     }
 
-    public static void main(String[] args) {
-        int[] rotorTypes = {1, 2, 3};
-        char[] rotorPositions = {'A', 'A', 'A'};
-        String plugboard = "";
-
-        EnigmaConfig config = new EnigmaConfig(rotorTypes, rotorPositions, plugboard);
-        config.setPlugboard("AB:CD:EF");
-        config.addPlug("FF");
-
-        System.out.println(config);
-    }
-
+    /**
+     * Gets the score.
+     *
+     * @return The score.
+     */
     public double getScore() {
         return score;
     }
 
+    /**
+     * Sets the score.
+     *
+     * @param score The score to set.
+     */
     public void setScore(double score) {
         this.score = score;
     }
@@ -159,6 +202,19 @@ public class EnigmaConfig {
                 '}';
     }
 
+    /**
+     * Checks if this EnigmaConfig is equal to another EnigmaConfig, ignoring the plugboard settings.
+     *
+     * @param other The other EnigmaConfig to compare to.
+     * @return {@code true} if the rotor types and rotor positions are equal, otherwise {@code false}.
+     */
+    public boolean equalsWithoutPlugboard(EnigmaConfig other) {
+        if (this == other) return true;
+        if (other == null) return false;
+        return Arrays.equals(rotorTypes, other.rotorTypes) &&
+                Arrays.equals(rotorPositions, other.rotorPositions);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -169,31 +225,11 @@ public class EnigmaConfig {
                 plugboard.equals(that.plugboard);
     }
 
-    public boolean equalsWithoutPlugboard(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        EnigmaConfig that = (EnigmaConfig) o;
-        return Arrays.equals(rotorTypes, that.rotorTypes) &&
-                Arrays.equals(rotorPositions, that.rotorPositions);
-    }
-
     @Override
     public int hashCode() {
         int result = Arrays.hashCode(rotorTypes);
         result = 31 * result + Arrays.hashCode(rotorPositions);
         result = 31 * result + plugboard.hashCode();
         return result;
-    }
-
-    public String getFixedPlugboard(int FIXED_PLUGBOARD_SIZE) {
-        if (FIXED_PLUGBOARD_SIZE == 0) {
-            return "";
-        }
-        String[] pairs = plugboard.split(":");
-        StringBuilder fixedPlugboard = new StringBuilder();
-        for (int i = 0; i < FIXED_PLUGBOARD_SIZE && i < pairs.length; i++) {
-            fixedPlugboard.append(pairs[i]).append(':');
-        }
-        return fixedPlugboard.substring(0, fixedPlugboard.length() - 1);
     }
 }

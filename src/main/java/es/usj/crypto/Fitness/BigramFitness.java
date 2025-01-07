@@ -5,16 +5,21 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Path;
 
+/**
+ * The BigramFitness class calculates the fitness score of a given text based on bigram frequencies.
+ */
 public class BigramFitness {
-    private float[][] bigramScores = new float[26][26];
+    private final float[][] bigramScores = new float[26][26];
     private float mean;
     private float stdDev;
 
+    /**
+     * Constructs a BigramFitness object and loads bigram scores from a JSON file.
+     */
     public BigramFitness() {
         // Load bigrams.json into a 2D array for faster lookup
         Path path = Path.of("src/main/resources/data/bigrams.json");
@@ -37,8 +42,6 @@ public class BigramFitness {
                 // Store the score in the bigramScores array
                 bigramScores[char1][char2] = score;
             }
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -46,6 +49,9 @@ public class BigramFitness {
         calculateMeanAndStdDev();
     }
 
+    /**
+     * Calculates the mean and standard deviation of the bigram scores.
+     */
     private void calculateMeanAndStdDev() {
         // Calculate mean
         float sum = 0;
@@ -65,19 +71,24 @@ public class BigramFitness {
         for (float[] row : bigramScores) {
             for (float score : row) {
                 if (score > 0) {
-                    variance += Math.pow(score - mean, 2);
+                    variance += (float) Math.pow(score - mean, 2);
                 }
             }
         }
         stdDev = (float) Math.sqrt(variance / count);
-
     }
 
+    /**
+     * Calculates the fitness score of the given text based on bigram frequencies.
+     *
+     * @param text The text to evaluate.
+     * @return The fitness score of the text.
+     */
     public double score(String text) {
         double fitness = 0;
         int totalBigrams = 0;
 
-        String[] words =text.split(" ");
+        String[] words = text.split(" ");
 
         for (String word : words) {
             if (word.length() < 2) continue;
@@ -101,9 +112,7 @@ public class BigramFitness {
         // Z-Score Normalization
         double zScore = (fitness - (totalBigrams * mean)) / (totalBigrams * stdDev);
 
-
         // Convert Z-Score to probability-like value between 0 and 1
-
         return Math.max(0, Math.min(1, (zScore + 3) / 6));
     }
 }

@@ -10,11 +10,17 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Path;
 
+/**
+ * The TrigramFitness class calculates the fitness score of a given text based on trigram frequencies.
+ */
 public class TrigramFitness {
-    private float[][][] trigramScore = new float[26][26][26];
+    private final float[][][] trigramScore = new float[26][26][26];
     private float mean;
     private float stdDev;
 
+    /**
+     * Constructs a TrigramFitness object and loads trigram scores from a JSON file.
+     */
     public TrigramFitness() {
         // Load trigrams.json into a 3D array for faster lookup
         Path path = Path.of("src/main/resources/data/trigrams.json");
@@ -37,15 +43,15 @@ public class TrigramFitness {
                 // Store the score in the trigramScores array
                 trigramScore[char1][char2][char3] = score;
             }
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         calculateMeanAndStdDev();
     }
 
-
+    /**
+     * Calculates the mean and standard deviation of the trigram scores.
+     */
     private void calculateMeanAndStdDev() {
         // Calculate mean
         float sum = 0;
@@ -68,7 +74,7 @@ public class TrigramFitness {
             for (float[] row : matrix) {
                 for (float score : row) {
                     if (score > 0) {
-                        variance += Math.pow(score - mean, 2);
+                        variance += (float) Math.pow(score - mean, 2);
                     }
                 }
             }
@@ -76,6 +82,12 @@ public class TrigramFitness {
         stdDev = (float) Math.sqrt(variance / count);
     }
 
+    /**
+     * Calculates the fitness score of the given text based on trigram frequencies.
+     *
+     * @param text The text to evaluate.
+     * @return The fitness score of the text.
+     */
     public double score(String text) {
         double fitness = 0;
         int totalTrigrams = 0;
@@ -108,5 +120,4 @@ public class TrigramFitness {
         // Convert Z-Score to probability-like value between 0 and 1
         return Math.max(0, Math.min(1, (zScore + 3) / 6)); // Clamp between 0 and 1
     }
-
 }

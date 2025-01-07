@@ -6,11 +6,16 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Stream;
 
+/**
+ * The EnglishWordChecker class checks if words are valid English words based on a dictionary and calculates the score of valid words in a given text.
+ * It returns the ratio of valid words to total words in the text.
+ */
 public class EnglishWordChecker {
-    private Set<String> dictionary = new HashSet<>();
-    private static final double ENGLISH_MEAN_VALID = 1.0; // Mean valid words ratio for English text
-    private static final double ENGLISH_STDDEV_VALID = 0.01; // Assumed small standard deviation for valid words ratio
+    private final Set<String> dictionary = new HashSet<>();
 
+    /**
+     * Constructs an EnglishWordChecker and loads dictionary words from a resource file into a Set for fast lookup.
+     */
     public EnglishWordChecker() {
         // Load dictionary words from resource file into a Set for fast lookup
         try (final InputStream is = EnglishWordChecker.class.getResourceAsStream("/data/words.txt")) {
@@ -29,12 +34,22 @@ public class EnglishWordChecker {
         }
     }
 
-    // Function to check if a word is in the dictionary
+    /**
+     * Checks if a word is in the dictionary.
+     *
+     * @param word The word to check.
+     * @return {@code true} if the word is in the dictionary, otherwise {@code false}.
+     */
     public boolean isEnglishWord(String word) {
         return dictionary.contains(word.toLowerCase());
     }
 
-    // Score method to calculate valid words score from a given text
+    /**
+     * Calculates the valid words score from a given text.
+     *
+     * @param text The text to evaluate.
+     * @return The valid words score.
+     */
     public double score(String text) {
         // Preprocess the text: convert to uppercase and split into words
         String[] words = text.toUpperCase().split(" ");
@@ -52,9 +67,7 @@ public class EnglishWordChecker {
         }
 
         // Calculate valid words ratio
-        double validWordsRatio = (double) validWordCount / totalWords;
 
-        return validWordsRatio;
+        return (double) validWordCount / totalWords;
     }
-
 }

@@ -1,6 +1,5 @@
 package es.usj.crypto.utils;
 
-import es.usj.crypto.EnigmaConfig;
 import es.usj.crypto.Fitness.Score;
 import es.usj.crypto.enigma.EnigmaApp;
 
@@ -11,12 +10,20 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * The EnigmaManager class manages the processing and scoring of Enigma configurations.
+ */
 public class EnigmaManager {
     private final ExecutorService executor;
     private static String text;
-    private ProgressBar progressBar;
+    private final ProgressBar progressBar;
     private static final int MAX_QUEUE_SIZE = 100000; // Prevent unbounded queue growth
 
+    /**
+     * Constructs an EnigmaManager and loads text from the specified path.
+     *
+     * @param path The path to the text file.
+     */
     public EnigmaManager(Path path) {
         this();
         try {
@@ -26,6 +33,9 @@ public class EnigmaManager {
         }
     }
 
+    /**
+     * Constructs an EnigmaManager with a default thread pool configuration.
+     */
     public EnigmaManager() {
         // Use a more sophisticated thread pool configuration
         this.executor = new ThreadPoolExecutor(
@@ -38,6 +48,12 @@ public class EnigmaManager {
         this.progressBar = new ProgressBar(0);
     }
 
+    /**
+     * Ciphers the initial text using the provided configuration and sets the text to the result.
+     * Also prints the initial text.
+     *
+     * @param config The Enigma configuration to use.
+     */
     public void cipherInitialText(EnigmaConfig config) {
         try {
             // Cipher the text using the provided configuration
@@ -49,6 +65,12 @@ public class EnigmaManager {
         }
     }
 
+    /**
+     * Generates a random Enigma configuration and ciphers the initial text.
+     *
+     * @param plugboardSize The size of the plugboard configuration.
+     * @return The generated Enigma configuration.
+     */
     public EnigmaConfig cipherInitialText(int plugboardSize) {
         try {
             // Generate a random plugboard configuration
@@ -73,6 +95,12 @@ public class EnigmaManager {
         }
     }
 
+    /**
+     * Generates a random plugboard configuration of the specified size.
+     *
+     * @param size The size of the plugboard configuration.
+     * @return The generated plugboard configuration.
+     */
     static String generatePlugboard(int size) {
         if (size == 0) {
             return "";
@@ -90,6 +118,11 @@ public class EnigmaManager {
         return plugboard.substring(0, plugboard.length() - 1);
     }
 
+    /**
+     * Generates random rotor types.
+     *
+     * @return An array of random rotor types.
+     */
     private int[] generateRandomRotorTypes() {
         Random random = new Random();
         Set<Integer> rotorTypesSet = new HashSet<>();
@@ -99,11 +132,23 @@ public class EnigmaManager {
         return rotorTypesSet.stream().mapToInt(Integer::intValue).toArray();
     }
 
+    /**
+     * Generates random rotor positions.
+     *
+     * @return An array of random rotor positions.
+     */
     private char[] generateRandomRotorPositions() {
         // Generate random rotor positions between 'A' and 'Z'
         Random random = new Random();
         return random.ints(3, 'A', 'Z' + 1).mapToObj(c -> (char) c).collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append).toString().toCharArray();
     }
+
+    /**
+     * Scores the provided Enigma configurations.
+     *
+     * @param configs The list of Enigma configurations to score.
+     * @param verbose Whether to print verbose output.
+     */
     public void scoreConfigurations(List<EnigmaConfig> configs, boolean verbose) {
         progressBar.reset(configs.size());
         if (verbose) {
@@ -152,6 +197,12 @@ public class EnigmaManager {
         }
     }
 
+    /**
+     * Processes the provided Enigma configuration.
+     *
+     * @param config The Enigma configuration to process.
+     * @return The processed text.
+     */
     public String process(EnigmaConfig config) {
         try {
             return processFuture(config).get();
@@ -160,6 +211,12 @@ public class EnigmaManager {
         }
     }
 
+    /**
+     * Processes the provided Enigma configuration asynchronously.
+     *
+     * @param config The Enigma configuration to process.
+     * @return A CompletableFuture containing the processed text.
+     */
     private CompletableFuture<String> processFuture(EnigmaConfig config) {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -172,6 +229,9 @@ public class EnigmaManager {
         }, executor);
     }
 
+    /**
+     * Shuts down the executor service.
+     */
     public void shutdown() {
         try {
             executor.shutdown();
@@ -184,6 +244,9 @@ public class EnigmaManager {
         }
     }
 
+    /**
+     * The EnigmaRunner class is a callable that processes an Enigma configuration.
+     */
     private record EnigmaRunner(EnigmaConfig config) implements Callable<String> {
 
         @Override

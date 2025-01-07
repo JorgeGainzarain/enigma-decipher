@@ -1,6 +1,6 @@
 package es.usj.crypto.enigma;
 
-import es.usj.crypto.EnigmaConfig;
+import es.usj.crypto.utils.EnigmaConfig;
 
 import java.util.Locale;
 import java.util.Map;

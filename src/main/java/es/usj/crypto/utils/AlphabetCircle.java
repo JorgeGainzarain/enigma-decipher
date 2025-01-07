@@ -1,14 +1,31 @@
-package es.usj.crypto.enigma;
+package es.usj.crypto.utils;
+
+import es.usj.crypto.Bombe;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+/**
+ * The AlphabetCircle class is a JPanel that visualizes the connections between letters of the alphabet.
+ * It highlights closed loops in red.
+ */
 public class AlphabetCircle extends JPanel {
     private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private final Map<Character, Set<Character>> connections;
     private final Set<Set<Character>> closedLoops;
 
+    /**
+     * Constructs an AlphabetCircle with the specified connections.
+     *
+     * @param connections A map where the key is a letter and the value is a set of connected letters.
+     */
     public AlphabetCircle(Map<Character, Set<Character>> connections) {
         this.connections = connections;
         this.closedLoops = findClosedLoops();
@@ -84,5 +101,33 @@ public class AlphabetCircle extends JPanel {
             }
         }
         return false;
+    }
+
+    /**
+     * The main method to test the AlphabetCircle class.
+     *
+     * @param args Command line arguments.
+     */
+    public static void main(String[] args) {
+        Bombe bombe = new Bombe(
+                null,
+                "OHNGYWTMZGNFRL",
+                "SYSTEMATICALLY",
+                42
+        );
+        Map<Character, Set<Character>> connections = new HashMap<>();
+        for (Map.Entry<Character, List<Map.Entry<Character, Integer>>> entry : bombe.letterConnections.entrySet()) {
+            Set<Character> connectedLetters = entry.getValue().stream()
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toSet());
+            connections.put(entry.getKey(), connectedLetters);
+        }
+
+        JFrame frame = new JFrame("Alphabet Circle");
+        AlphabetCircle panel = new AlphabetCircle(connections);
+        frame.add(panel);
+        frame.setSize(800, 800);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setVisible(true);
     }
 }

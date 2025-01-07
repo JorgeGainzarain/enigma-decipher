@@ -3,20 +3,38 @@ package es.usj.crypto.utils;
 import java.time.Duration;
 import java.time.Instant;
 
+/**
+ * The ProgressBar class provides a simple text-based progress bar for tracking and displaying progress.
+ */
 public class ProgressBar {
     private long currentProgress;
     private long totalProgress;
     private Instant startTime;
     private long lastRemainingTime; // Keeps track of the last remaining time for smoothing
 
+    /**
+     * Gets the current progress.
+     *
+     * @return The current progress.
+     */
     public long get() {
         return currentProgress;
     }
 
+    /**
+     * Constructs a ProgressBar with the specified total progress.
+     *
+     * @param totalProgress The total progress value.
+     */
     public ProgressBar(int totalProgress) {
         this((long) totalProgress);
     }
 
+    /**
+     * Constructs a ProgressBar with the specified total progress.
+     *
+     * @param totalProgress The total progress value.
+     */
     public ProgressBar(long totalProgress) {
         this.currentProgress = 0;
         this.totalProgress = totalProgress;
@@ -24,15 +42,28 @@ public class ProgressBar {
         this.lastRemainingTime = 0;
     }
 
+    /**
+     * Adds the specified increment to the current progress.
+     *
+     * @param increment The increment to add.
+     */
     public synchronized void add(int increment) {
         add((long) increment);
     }
 
+    /**
+     * Adds the specified increment to the current progress.
+     *
+     * @param increment The increment to add.
+     */
     public synchronized void add(long increment) {
         currentProgress = Math.min(currentProgress + increment, totalProgress);
         showProgressBar();
     }
 
+    /**
+     * Displays the progress bar in the console.
+     */
     public void showProgressBar() {
         int barLength = 50;
         int progress = (int) ((double) currentProgress / totalProgress * barLength);
@@ -58,6 +89,11 @@ public class ProgressBar {
         }
     }
 
+    /**
+     * Gets the elapsed time since the progress bar started.
+     *
+     * @return The elapsed time as a formatted string.
+     */
     private String getElapsedTime() {
         Duration elapsed = Duration.between(startTime, Instant.now());
         long hours = elapsed.toHours();
@@ -67,6 +103,11 @@ public class ProgressBar {
         return String.format("%02d:%02d:%02d", hours, minutes, seconds);
     }
 
+    /**
+     * Gets the estimated time of arrival (ETA) based on the current progress.
+     *
+     * @return The ETA as a formatted string.
+     */
     private String getETA() {
         if (currentProgress == 0) {
             return "--:--:--"; // ETA cannot be calculated at 0 progress
@@ -96,6 +137,11 @@ public class ProgressBar {
         return String.format("%02d:%02d:%02d", hours, minutes, seconds);
     }
 
+    /**
+     * Resets the progress bar with the specified total progress.
+     *
+     * @param size The new total progress value.
+     */
     public void reset(int size) {
         this.currentProgress = 0;
         this.totalProgress = size;

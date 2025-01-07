@@ -1,16 +1,22 @@
 package es.usj.crypto;
 
+import es.usj.crypto.utils.EnigmaConfig;
 import es.usj.crypto.utils.EnigmaManager;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.stream.Collectors;
 
+/**
+ * The SimpleCipher class demonstrates the usage of the Enigma machine for encrypting text.
+ */
 public class SimpleCipher {
     static Path plainTextPath = Paths.get("data/plain_text.txt");
 
+    /**
+     * The main method to run the SimpleCipher.
+     *
+     * @param args Command line arguments.
+     */
     public static void main(String[] args) {
         int[] rotorTypes = {4, 3, 5};
         char[] rotorPositions = {'V', 'H', 'Z'};

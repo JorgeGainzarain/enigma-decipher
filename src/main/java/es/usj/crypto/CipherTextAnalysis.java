@@ -8,8 +8,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * The CipherTextAnalysis class provides methods to load words from a file and analyze a given ciphertext.
+ */
 public class CipherTextAnalysis {
 
+    /**
+     * Loads words from a file and groups them by their length.
+     *
+     * @param wordsFilePath The path to the words file.
+     * @return A map where the key is the word length and the value is a list of words of that length.
+     * @throws IOException If an I/O error occurs.
+     */
     public Map<Integer, List<String>> loadWordsByLength(String wordsFilePath) throws IOException {
         try (InputStream is = CipherTextAnalysis.class.getResourceAsStream(wordsFilePath)) {
             if (is == null) {
@@ -24,21 +34,32 @@ public class CipherTextAnalysis {
         }
     }
 
+    /**
+     * Reads the ciphertext from a file.
+     *
+     * @param cipherFilePath The path to the ciphertext file.
+     * @return The ciphertext as a string.
+     * @throws IOException If an I/O error occurs.
+     */
     public String readCipherText(String cipherFilePath) throws IOException {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(cipherFilePath), StandardCharsets.UTF_8))) {
             return reader.lines().collect(Collectors.joining("\n"));
         }
     }
 
+    /**
+     * The main method to run the CipherTextAnalysis.
+     *
+     * @param args Command line arguments.
+     */
     public static void main(String[] args) {
         CipherTextAnalysis analysis = new CipherTextAnalysis();
         try {
             Map<Integer, List<String>> wordsByLength = analysis.loadWordsByLength("/data/words_10K.txt");
             String cipherText = analysis.readCipherText("data/cipher.txt");
 
-
             // Print the ciphertext
-            //System.out.println("Ciphertext: " + cipherText);
+            // System.out.println("Ciphertext: " + cipherText);
 
             String[] cipherWords = cipherText.split("\\s+");
             Map<String, List<String>> possibleWordsMap = new HashMap<>();
@@ -48,9 +69,9 @@ public class CipherTextAnalysis {
                 List<String> filteredWords = possibleWords.stream()
                         .filter(possibleWord -> {
                             for (int i = 0; i < word.length(); i++) {
-                                //System.out.println(word.charAt(i) + "=" + possibleWord.charAt(i) + "?");
+                                // System.out.println(word.charAt(i) + "=" + possibleWord.charAt(i) + "?");
                                 if (word.charAt(i) == possibleWord.charAt(i)) {
-                                    //System.out.println(word + "=" + possibleWord);
+                                    // System.out.println(word + "=" + possibleWord);
                                     return false;
                                 }
                             }
@@ -59,7 +80,6 @@ public class CipherTextAnalysis {
                         .collect(Collectors.toList());
                 possibleWordsMap.put(word, filteredWords);
             }
-
 
             // Print the possible words map sorted by the size of their filtered words from less to more
             possibleWordsMap.entrySet().stream()

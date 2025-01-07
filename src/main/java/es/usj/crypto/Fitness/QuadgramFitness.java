@@ -4,11 +4,17 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
+/**
+ * The QuadgramFitness class calculates the fitness score of a given text based on quadgram frequencies.
+ */
 public class QuadgramFitness {
-    private float[][][][] quadgramScores = new float[26][26][26][26];
+    private final float[][][][] quadgramScores = new float[26][26][26][26];
     private float mean;
     private float stdDev;
 
+    /**
+     * Constructs a QuadgramFitness object and loads quadgram scores from a file.
+     */
     public QuadgramFitness() {
         // Load quadgrams into a 4D array for fast lookup
         try (final InputStream is = QuadgramFitness.class.getResourceAsStream("/data/quadgrams")) {
@@ -45,6 +51,12 @@ public class QuadgramFitness {
         calculateMeanAndStdDev();
     }
 
+    /**
+     * Sets the quadgram score for a given key.
+     *
+     * @param key   The quadgram key.
+     * @param score The score to set.
+     */
     private void setQuadgramScore(String key, float score) {
         int first = key.charAt(0) - 'A';
         int second = key.charAt(1) - 'A';
@@ -53,6 +65,9 @@ public class QuadgramFitness {
         this.quadgramScores[first][second][third][fourth] = score;
     }
 
+    /**
+     * Calculates the mean and standard deviation of the quadgram scores.
+     */
     private void calculateMeanAndStdDev() {
         // Calculate mean
         float sum = 0;
@@ -78,7 +93,7 @@ public class QuadgramFitness {
                 for (float[] array1D : matrix2D) {
                     for (float score : array1D) {
                         if (score > 0) {
-                            variance += Math.pow(score - mean, 2);
+                            variance += (float) Math.pow(score - mean, 2);
                         }
                     }
                 }
@@ -87,6 +102,12 @@ public class QuadgramFitness {
         stdDev = (float) Math.sqrt(variance / count);
     }
 
+    /**
+     * Calculates the fitness score of the given text based on quadgram frequencies.
+     *
+     * @param text The text to evaluate.
+     * @return The fitness score of the text.
+     */
     public double score(String text) {
         double fitness = 0;
         int totalQuadgrams = 0;
@@ -121,5 +142,4 @@ public class QuadgramFitness {
         // Adjusted mapping range
         return Math.max(0, Math.min(1, (zScore + 5) / 10));
     }
-
 }
