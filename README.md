@@ -13,7 +13,7 @@ Deciphers a code ciphered with the custom enigma implementation
 To run the project, you have 2 functionalities:
 -Main class (Burte force + Heuristics Approach)
 -Bombe class (Crib + Heuristics Approach)
-Note: The bombe class
+Note: The bombe class is kinda slow, takes around 45 minutes, this could (and will) be improved by avoiding the repetitive creation of machines, however for testing pruposes, some of the configs, like the middle and right positions of rotors, can be fixed to the correct ones, that way it will only take a few seconds and you can see the functionality without needing to wait for the whole search
 
 ## Dependencies
 - Java Development Kit (JDK)
