@@ -109,7 +109,7 @@ public class Main {
         return topScoresWithPlugs;
     }
 
-    private static List<String> generatePlugboardConfig() {
+    static List<String> generatePlugboardConfig() {
         List<String> plugboards = new ArrayList<>();
         char[] alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".toCharArray();
         boolean[] used = new boolean[alphabet.length];

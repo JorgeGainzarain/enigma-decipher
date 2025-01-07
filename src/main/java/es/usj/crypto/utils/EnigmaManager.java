@@ -38,6 +38,16 @@ public class EnigmaManager {
         this.progressBar = new ProgressBar(0);
     }
 
+    public void cipherInitialText(EnigmaConfig config) {
+        try {
+            // Cipher the text using the provided configuration
+            text = process(config);
+            System.out.println("Initial text: " + text);
+
+        } catch (Exception e) {
+            System.err.println("Error during ciphering initial text: " + e.getMessage());
+        }
+    }
 
     public EnigmaConfig cipherInitialText(int plugboardSize) {
         try {

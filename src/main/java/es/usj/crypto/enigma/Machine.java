@@ -39,6 +39,7 @@ import static org.junit.Assert.assertTrue;
  * </pre>
  */
 public class Machine {
+    //static final RotorPool rotorPool = new RotorPool();
 
     // The accepted input alphabet (uppercase English letters)
     public static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -190,6 +191,10 @@ public class Machine {
         leftRotor = app.createRotor(config.getRotorTypes()[2], config.getRotorPositions()[2]);
     }
 
+    public void setPlugboard(String plugboardSettings) {
+        this.plugboard = new Plugboard(plugboardSettings);
+    }
+
     public void setPlugboard(Map<Character, Character> plugboardSettings) {
         StringBuilder plugboard = new StringBuilder();
         for (Map.Entry<Character, Character> entry : plugboardSettings.entrySet()) {
@@ -197,4 +202,11 @@ public class Machine {
         }
         this.plugboard = new Plugboard(plugboard.toString());
     }
+
+    public void setRotors(int[] rotorTypes, char[] rotorPositions) {
+        this.leftRotor.setConfig(rotorTypes[0], rotorPositions[0]);
+        this.middleRotor.setConfig(rotorTypes[1], rotorPositions[1]);
+        this.rightRotor.setConfig(rotorTypes[2], rotorPositions[2]);
+    }
+
 }

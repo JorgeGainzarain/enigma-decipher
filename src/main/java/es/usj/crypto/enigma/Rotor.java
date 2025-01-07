@@ -18,12 +18,28 @@ import static org.junit.Assert.assertTrue;
  */
 public class Rotor {
 
+    private static final String ROTOR1 = "FKQHTLXOCBJSPDZRAMEWNIUYGV";
+    private static final String ROTOR2 = "SLVGBTFXJQOHEWIRZYAMKPCNDU";
+    private static final String ROTOR3 = "EHRVXGAOBQUSIMZFLYNWKTPDJC";
+    private static final String ROTOR4 = "NTZPSFBOKMWRCJDIVLAEYUXHGQ";
+    private static final String ROTOR5 = "BDFHJLCPRTXVZNYEIWGAKMUSQO";
+
     // 26-character sequence including ALPHABET characters in random order with no repetition
     private String ringSequence;
     // Position of the notch in the rotor (enables rotation of the rotor to the left)
-    private final char notch;
+    private char notch;
     // Initial position of the rotor
-    private final char rotorPosition;
+    private char rotorPosition;
+
+    public void setConfig(int rotorType, char rotorPosition) {
+        this.ringSequence = RotorConfiguration.getRotorConfiguration(rotorType).getRingSequence();
+        this.notch = RotorConfiguration.getRotorConfiguration(rotorType).getNotch();
+
+        this.rotorPosition = rotorPosition;
+        while (this.ringSequence.charAt(0) != this.rotorPosition) {
+            this.ringSequence = rotate(this.ringSequence);
+        }
+    }
 
     /**
      * Constructs a Rotor with the provided configuration and starting position.

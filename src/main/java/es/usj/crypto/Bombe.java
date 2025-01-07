@@ -10,7 +10,10 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 
+import static es.usj.crypto.Main.generatePlugboardConfig;
+
 public class Bombe {
+
     String ciphertext;
     String crib;
     int initialStep;
@@ -18,18 +21,35 @@ public class Bombe {
     public final Map<Character, List<Map.Entry<Character, Integer>>> letterConnections;
 
 
+    public Machine getMachineFromPool(EnigmaConfig config) {
+        Machine machine = machinePool.poll();
+        if (machine == null) {
+            machine = createMachine(config);
+        }
+        else {
+            machine.setRotors(config.getRotorTypes(), config.getRotorPositions());
+            machine.setPlugboard(config.getPlugboard());
+        }
+        return machine;
+    }
+
+    public void returnMachineToPool(Machine machine) {
+        machinePool.offer(machine);
+    }
+
     public Bombe(EnigmaConfig config, String ciphertext, String crib, int initialStep) {
         this.ciphertext = ciphertext;
         this.crib = crib;
         this.initialStep = initialStep;
         this.steps = new ArrayList<>();
         this.letterConnections = buildMenu();
+
     }
 
     private Map<Character, List<Map.Entry<Character, Integer>>> buildMenu() {
         Map<Character, List<Map.Entry<Character, Integer>>> menu = new LinkedHashMap<>();
 
-        for (int i = 0; i < crib.length(); i++) {
+        for (int i = initialStep; i < crib.length(); i++) {
             char plainChar = crib.charAt(i);
             char cipherChar = ciphertext.charAt(i);
             int stepNumber =  initialStep + i + 1;
@@ -106,7 +126,7 @@ public class Bombe {
 
         // Create a menu mapping each letter from ciphertext to the possible letters from crib manually
         Bombe bombe = new Bombe(config, ciphertext, crib, index);
-
+      
         // Get the letter with most connections
         char letter = bombe.letterConnections.entrySet().stream()
                 .max(Comparator.comparingInt(entry -> entry.getValue().size()))
@@ -184,6 +204,7 @@ public class Bombe {
         }
 
 
+
         //System.out.println("Valid configs:");
         validConfigs.forEach(System.out::println);
         System.out.println("Total valid configs: " + validConfigs.size());
@@ -238,4 +259,7 @@ public class Bombe {
             }
         }
     }
+
+
+
 }
