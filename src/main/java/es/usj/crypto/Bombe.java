@@ -5,36 +5,25 @@ import es.usj.crypto.enigma.Machine;
 import es.usj.crypto.utils.EnigmaManager;
 import es.usj.crypto.utils.ProgressBar;
 
-import java.nio.file.Path;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public class Bombe {
-    private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    private final Machine enigma;
-    private final String ciphertext;
-    private final String crib;
-    private final Map<Character, List<Map.Entry<Character, Integer>>> letterConnections;
+    String ciphertext;
+    String crib;
+    int initialStep;
     private final List<String> steps;
-    private final Set<Map<String, Object>> loopSteps;
-    private final ConcurrentLinkedQueue<EnigmaConfig> validConfigurations;
+    public final Map<Character, List<Map.Entry<Character, Integer>>> letterConnections;
 
 
-    public Bombe(EnigmaConfig config, String ciphertext, String crib) {
-        this.enigma = createMachine(config);
+    public Bombe(EnigmaConfig config, String ciphertext, String crib, int initialStep) {
         this.ciphertext = ciphertext;
         this.crib = crib;
+        this.initialStep = initialStep;
         this.steps = new ArrayList<>();
-        this.loopSteps = new HashSet<>();
         this.letterConnections = buildMenu();
-        this.validConfigurations = new ConcurrentLinkedQueue<>();
     }
 
     private Map<Character, List<Map.Entry<Character, Integer>>> buildMenu() {
@@ -43,7 +32,7 @@ public class Bombe {
         for (int i = 0; i < crib.length(); i++) {
             char plainChar = crib.charAt(i);
             char cipherChar = ciphertext.charAt(i);
-            int stepNumber = i + 1;
+            int stepNumber =  initialStep + i + 1;
 
             menu.putIfAbsent(plainChar, new ArrayList<>());
             menu.putIfAbsent(cipherChar, new ArrayList<>());
@@ -56,13 +45,19 @@ public class Bombe {
             System.out.println(step);
         }
 
+        // Log the menu
+        System.out.println("\nMenu:");
+        menu.forEach((key, value) -> {
+            System.out.print(key + " -> ");
+            value.forEach(entry -> System.out.print(entry.getKey() + " (" + entry.getValue() + "), "));
+            System.out.println();
+        });
         return menu;
     }
 
-
-    public Machine createMachine(EnigmaConfig config) {
+    public static Machine createMachine(EnigmaConfig config) {
         String[] args = {
-                "--input=" + ciphertext,
+                "--input=" + "",
                 "--plugboard=" + config.getPlugboard(),
                 "--left-rotor=" + config.getRotorTypes()[0],
                 "--left-rotor-position=" + config.getRotorPositions()[0],
@@ -74,315 +69,173 @@ public class Bombe {
         return new EnigmaApp().createMachine(args);
     }
 
-    /*
-    public void visualizeConnections() {
-        JFrame frame = new JFrame("Bombe Connections Visualization");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(800, 800);
-        frame.add(new AlphabetCircle(letterConnections));
-        frame.setVisible(true);
-    }
-
-     */
-
-    // Main processing method with optimizations
-    public List<EnigmaConfig> processConnections(EnigmaConfig baseConfig, char firstChar,
-                                                 List<Map.Entry<Character, Integer>> firstCharConnections) {
-        // Calculate new total including all possible mappings
-        int configurationsPerMapping = 5 * 4 * 3 * 26 * 26 * 26;
-        int total = configurationsPerMapping * 26;  // Multiply by number of possible mappings
-        ProgressBar progressBar = new ProgressBar(total);
-        AtomicInteger progressCounter = new AtomicInteger();
-
-        // Create thread pool sized to available processors
-        int processors = Runtime.getRuntime().availableProcessors();
-        ExecutorService executor = Executors.newFixedThreadPool(processors);
-
+    public static void main(String[] args) {
+        EnigmaConfig config = new EnigmaConfig(new int[]{3, 5, 4}, new char[]{'J', 'D', 'A'}, "XZ:AY:BW:CN:DP:EQ:FR:GT:HS:JU");
+        EnigmaManager enigmaManager = new EnigmaManager(Paths.get("data/plain_text.txt"));
+        String txt = enigmaManager.process(config);
+        System.out.println("Initial text: " + txt);
+        // Write the text to data/cipher_test.txx manually
+        enigmaManager.shutdown();
         try {
-            // Pre-generate all valid rotor combinations
-            List<RotorCombination> rotorCombinations = generateRotorCombinations();
-
-            // Create a list to hold all futures
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-            // Process each possible mapping from 'A' to 'Z' in parallel
-            for (char mapping = 'A'; mapping <= 'Z'; mapping++) {
-                final char currentMapping = mapping;
-
-                // Process rotor combinations in parallel for each mapping
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    rotorCombinations.forEach(combo ->
-                            processRotorCombination(
-                                    combo,
-                                    baseConfig,
-                                    firstChar,
-                                    firstCharConnections,
-                                    currentMapping,  // Pass the current mapping being tested
-                                    progressCounter,
-                                    progressBar,
-                                    configurationsPerMapping  // Pass configurations per mapping for progress
-                            )
-                    );
-                }, executor);
-
-                futures.add(future);
-            }
-
-            // Wait for all tasks to complete
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-
-        } finally {
-            executor.shutdown();
-            return new ArrayList<>(validConfigurations);
+            Files.writeString(Paths.get("data/cipher_test.txt"), txt);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-    }
 
-    // Record to hold rotor combination data
-    private record RotorCombination(int left, int middle, int right) {}
+        // Try to decipher the text with bombe approach
+        // let's start it simple
 
-    // Generate all valid rotor combinations
-    private List<RotorCombination> generateRotorCombinations() {
-        List<RotorCombination> combinations = new ArrayList<>();
+        String crib = "SYSTEMATICALLY";
+        // Find ciphertext from the txt finding first word with same length as crib
+        int index = 0;
+        String ciphertext = "";
+        for (String word : txt.split(" ")) {
+            if (word.length() == crib.length()) {
+                ciphertext = word;
+                break;
+            }
+            index += word.length();
+        }
+        if (ciphertext.isEmpty()) {
+            throw new NoSuchElementException();
+        }
+
+        System.out.println("Ciphertext: " + ciphertext);
+        System.out.println("Crib: " + crib);
+        System.out.println("Index: " + index);
+
+        // Create a menu mapping each letter from ciphertext to the possible letters from crib manually
+        Bombe bombe = new Bombe(config, ciphertext, crib, index);
+
+        // Get the letter with most connections
+        char letter = bombe.letterConnections.entrySet().stream()
+                .max(Comparator.comparingInt(entry -> entry.getValue().size()))
+                .map(Map.Entry::getKey)
+                .orElseThrow();
+
+        System.out.println("Letter with most connections: " + letter);
+        System.out.println("Connections: " + bombe.letterConnections.get(letter));
+
+
+
+        List<EnigmaConfig> validConfigs = new ArrayList<>();
+
+        int total = 5 * 4 * 3; // Rotors
+        total *= 26 * 26 * 26; // Positions
+        total *= 26; // Mappings
+        ProgressBar progressBar = new ProgressBar(total);
+
+        // We would iterate through configs but let's just get correct one without plugboard for now:
+        //EnigmaConfig correctConfig = new EnigmaConfig(new int[]{3, 1, 4}, new char[]{'J', 'D', 'A'}, "");
+
         for (int L = 1; L <= 5; L++) {
             for (int M = 1; M <= 5; M++) {
                 if (L == M) continue;
                 for (int R = 1; R <= 5; R++) {
                     if (R == L || R == M) continue;
-                    combinations.add(new RotorCombination(L, M, R));
+                    for (char LPos = 'A'; LPos <= 'Z'; LPos++) {
+                        for (char MPos = 'A'; MPos <= 'Z'; MPos++) {
+                            for (char RPos = 'A'; RPos <= 'Z'; RPos++) {
+                                for (char map = 'A'; map <= 'Z'; map++) {
+                                    total++;
+
+                                    EnigmaConfig correctConfig = new EnigmaConfig(new int[]{L, M, R}, new char[]{LPos, MPos, RPos}, "");
+                                    correctConfig.addPlug(letter + "" + map);
+
+                                    List<char[]> testedMappings = new ArrayList<>();
+                                    testedMappings.add(new char[]{letter, map});
+
+                                    Map<Character, List<Map.Entry<Character, Integer>>> currentMappings = new HashMap<>();
+                                    currentMappings.put(letter, new ArrayList<>(bombe.letterConnections.get(letter)));
+                                    //System.out.println("Current mappings initial: " + currentMappings);
+
+                                    boolean validConfig = true;
+
+                                    while (!currentMappings.isEmpty()) {
+                                        //System.out.println("Current plugboard: " + correctConfig.getPlugboard());
+                                        //System.out.println("Current mappings: " + currentMappings);
+                                        //System.out.println("Tested mappings: ");
+                                        //testedMappings.forEach(mapping -> System.out.println(mapping[0] + "<->" + mapping[1]));
+                                        try {
+                                            testDeduction(currentMappings, correctConfig, testedMappings);
+                                            //System.out.println("Tested mappings After: ");
+                                            //testedMappings.forEach(mapping -> System.out.println(mapping[0] + "<->" + mapping[1]));
+                                        } catch (AssertionError e) {
+                                            //System.out.println("Not valid config\nError: " + e.getMessage());
+                                            validConfig = false;
+                                            break;
+                                        }
+
+                                        currentMappings = getNextConnections(testedMappings, bombe);
+                                    }
+
+                                    if (validConfig) {
+                                        validConfigs.add(correctConfig);
+                                        //System.out.println("Final config: " + correctConfig);
+                                    }
+                                }
+
+                            }
+                            progressBar.add(26 * 26);
+                        }
+                    }
                 }
             }
         }
-        return combinations;
+
+
+        //System.out.println("Valid configs:");
+        validConfigs.forEach(System.out::println);
+        System.out.println("Total valid configs: " + validConfigs.size());
+        System.out.println("Total configs tested: " + total);
+        System.out.println("% of valid configs: " + (double) validConfigs.size() / total * 100 + "%");
+
+        // Check if original config was found and show it if it does
+        if (validConfigs.stream().anyMatch(currConfig -> currConfig.equalsWithoutPlugboard(config))) {
+            System.out.println("Original config found!");
+        }
+
     }
 
-    // Process a single rotor combination
-    private void processRotorCombination(
-            RotorCombination combo,
-            EnigmaConfig baseConfig,
-            char firstChar,
-            List<Map.Entry<Character, Integer>> firstCharConnections,
-            char mapping,  // Added parameter for current mapping
-            AtomicInteger numValid,
-            ProgressBar progressBar,
-            int configurationsPerMapping) {
+    private static Map<Character, List<Map.Entry<Character, Integer>>> getNextConnections(List<char[]> testedMappings, Bombe bombe) {
+        Map<Character, List<Map.Entry<Character, Integer>>> currentMappings = new HashMap<>();
+        for (char[] mapping : testedMappings) {
+            char letterToTest1 = mapping[0];
+            char letterToTest2 = mapping[1];
 
-        EnigmaConfig threadConfig = new EnigmaConfig(baseConfig);
-        threadConfig.setRotorTypes(new int[]{combo.left(), combo.middle(), combo.right()});
+            // Now get the connections for each of the letters
+            List<Map.Entry<Character, Integer>> connections1 = new ArrayList<>(bombe.letterConnections.getOrDefault(letterToTest1, Collections.emptyList()));
+            List<Map.Entry<Character, Integer>> connections2 = new ArrayList<>(bombe.letterConnections.getOrDefault(letterToTest2, Collections.emptyList()));
 
-        List<Character> testedChars = new ArrayList<>();
-        List<char[]> deductedMappings = new ArrayList<>();
-        char[] positions = ALPHABET.toCharArray();
+            // Filter out from both lists any mapping that already was tested, note, inverse order still counts as tested
+            connections1.removeIf(entry -> testedMappings.stream().anyMatch(testedMapping -> testedMapping[0] == entry.getKey() || testedMapping[1] == entry.getKey()));
+            connections2.removeIf(entry -> testedMappings.stream().anyMatch(testedMapping -> testedMapping[0] == entry.getKey() || testedMapping[1] == entry.getKey()));
 
-        for (char LPos : positions) {
-            for (char MPos : positions) {
-                for (char RPos : positions) {
-                    processPosition(
-                            threadConfig,
-                            new char[]{LPos, MPos, RPos},
-                            firstChar,
-                            firstCharConnections,
-                            mapping,  // Pass the current mapping
-                            testedChars,
-                            deductedMappings,
-                            numValid,
-                            progressBar,
-                            configurationsPerMapping
-                    );
+            // Show the connections
+            //System.out.println("Connections for " + letterToTest1 + ": " + connections1);
+            //System.out.println("Connections for " + letterToTest2 + ": " + connections2);
 
-                    testedChars.clear();
-                    deductedMappings.clear();
-                }
-            }
-        }
-    }
-
-    // Process a single position combination
-    private void processPosition(
-            EnigmaConfig config,
-            char[] positions,
-            char firstChar,
-            List<Map.Entry<Character, Integer>> firstCharConnections,
-            char mapping,  // Added parameter for current mapping
-            List<Character> testedChars,
-            List<char[]> deductedMappings,
-            AtomicInteger progressCounter,
-            ProgressBar progressBar,
-            int configurationsPerMapping) {
-
-        EnigmaConfig attemptConfig = new EnigmaConfig(config);
-        attemptConfig.setRotorPositions(positions);
-        // Use the current mapping instead of hardcoded 'N'
-        attemptConfig.setPlugboard(firstChar + "" + mapping);
-
-        testedChars.add(firstChar);
-
-        boolean validDeduction = findMappingsFromDeduction(
-                firstCharConnections,
-                firstChar,
-                mapping,  // Pass the current mapping
-                this,
-                attemptConfig,
-                deductedMappings
-        );
-
-        if (validDeduction) {
-            validDeduction = processRemainingDeductions(
-                    attemptConfig,
-                    testedChars,
-                    deductedMappings
-            );
-        }
-
-        if (validDeduction) {
-            EnigmaConfig validConfig = new EnigmaConfig(
-                    attemptConfig.getRotorTypes(),
-                    attemptConfig.getRotorPositions(),
-                    attemptConfig.getPlugboard()
-            );
-            validConfigurations.offer(validConfig);
-        }
-
-        // Update progress less frequently to reduce overhead
-        int currentProgress = progressCounter.incrementAndGet();
-        if (currentProgress % (configurationsPerMapping / 50) == 0) {
-            progressBar.add(configurationsPerMapping / 50);
-        }
-    }
-
-    // Process remaining deductions after initial deduction
-    private boolean processRemainingDeductions(
-            EnigmaConfig config,
-            List<Character> testedChars,
-            List<char[]> deductedMappings) {
-
-        List<Map.Entry<Character, List<Map.Entry<Character, Integer>>>> finalConnections =
-                buildFinalConnections(testedChars, deductedMappings);
-
-        for (Map.Entry<Character, List<Map.Entry<Character, Integer>>> entry : finalConnections) {
-            char key = entry.getKey();
-            List<Map.Entry<Character, Integer>> connections = entry.getValue();
-
-            char map = deductedMappings.stream()
-                    .filter(plug -> plug[0] == key || plug[1] == key)
-                    .map(plug -> plug[0] == key ? plug[1] : plug[0])
-                    .findFirst()
-                    .orElseThrow();
-
-            if (!findMappingsFromDeduction(connections, key, map, this, config, deductedMappings)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    // Build final connections list
-    private List<Map.Entry<Character, List<Map.Entry<Character, Integer>>>> buildFinalConnections(
-            List<Character> testedChars,
-            List<char[]> deductedMappings) {
-
-        List<Map.Entry<Character, List<Map.Entry<Character, Integer>>>> finalConnections =
-                new ArrayList<>();
-
-        for (char[] plug : deductedMappings) {
-            char char1 = plug[0];
-            char char2 = plug[1];
-
-            List<Map.Entry<Character, Integer>> connections1 = letterConnections.get(char1);
-            List<Map.Entry<Character, Integer>> connections2 =
-                    char1 == char2 ? connections1 : letterConnections.get(char2);
-
-            if (connections1 == null) connections1 = new ArrayList<>();
-            if (connections2 == null) connections2 = new ArrayList<>();
-
-            connections1 = connections1.stream()
-                    .filter(entry -> !testedChars.contains(entry.getKey()))
-                    .collect(Collectors.toList());
-
-            if (char1 != char2) {
-                connections2 = connections2.stream()
-                        .filter(entry -> !testedChars.contains(entry.getKey()))
-                        .collect(Collectors.toList());
-            }
-
+            // Add the connections to the current mappings if they are not empty
             if (!connections1.isEmpty()) {
-                finalConnections.add(new AbstractMap.SimpleEntry<>(char1, connections1));
+                currentMappings.put(letterToTest1, connections1);
             }
-
-            if (char1 != char2 && !connections2.isEmpty()) {
-                finalConnections.add(new AbstractMap.SimpleEntry<>(char2, connections2));
-            }
-        }
-
-        return finalConnections;
-    }
-
-    public static void main(String[] args) {
-        EnigmaConfig config = new EnigmaConfig(
-                new int[]{1, 2, 3},
-                new char[]{'A', 'A', 'A'},
-                ""
-        );
-
-        String ciphertext = "KAHYCFKDTCUSGH";
-        String crib = "IDENTIFICATION";
-
-        Bombe bombe = new Bombe(config, ciphertext, crib);
-
-        List<Map.Entry<Character, List<Map.Entry<Character, Integer>>>> sortedConnections =
-                new ArrayList<>(bombe.letterConnections.entrySet());
-        sortedConnections.sort((e1, e2) ->
-                Integer.compare(e2.getValue().size(), e1.getValue().size()));
-
-        char firstChar = sortedConnections.get(0).getKey();
-        List<Map.Entry<Character, Integer>> firstCharConnections =
-                sortedConnections.get(0).getValue();
-
-        System.out.println("-----------------");
-        System.out.println("Mappings for character " + firstChar);
-
-        List<EnigmaConfig> validConfigs = bombe.processConnections(config, firstChar, firstCharConnections);
-        System.out.println("\nNumber of valid configurations: " + validConfigs.size());
-
-        Path cipherTextPath = Paths.get("data/cipher_text_test.txt");
-        EnigmaManager manager = new EnigmaManager(cipherTextPath);
-        manager.scoreConfigurations(validConfigs, true);
-        manager.shutdown();
-
-        validConfigs.stream()
-                .sorted(Comparator.comparingDouble(EnigmaConfig::getScore).reversed())
-                .limit(100)
-                .forEach(System.out::println);
-    }
-
-    private static boolean findMappingsFromDeduction(
-            List<Map.Entry<Character,
-                    Integer>> charConnections,
-            char currChar,
-            char map,
-            Bombe bombe, EnigmaConfig newConfig,
-            List<char[]> deductedMappings)
-    {
-        // Get the new mappings from this deduction
-        //int numValid = 0;
-        for (Map.Entry<Character, Integer> entry : charConnections) {
-            char cipherChar = entry.getKey();
-            int stepNumber = entry.getValue();
-            //System.out.println("(X=" + stepNumber + "): \n" + currChar + '☰' + map + " -> ?☰" + cipherChar);
-
-            try {
-                Machine currMachine = bombe.createMachine(newConfig);
-                currMachine.rotateRotors(stepNumber);
-                char newChar = currMachine.cipherCharacter(currChar);
-                //System.out.println("" + currChar + '☰' + map + " -> " + newChar + '☰' + cipherChar);
-                deductedMappings.add(new char[]{newChar, cipherChar});
-                newConfig.addPlug(newChar + "" + cipherChar);
-            } catch (AssertionError e) {
-                //System.out.println("Incongruent mapping detected, discarding...");
-                //numValid++;
-                return false;
+            if (!connections2.isEmpty()) {
+                currentMappings.put(letterToTest2, connections2);
             }
         }
-        return true;
+        return currentMappings;
+    }
+
+    private static void testDeduction(Map<Character, List<Map.Entry<Character, Integer>>> currentMappings, EnigmaConfig correctConfig, List<char[]> testedMappings)  throws AssertionError{
+        for (char letter : currentMappings.keySet()) {
+            for (Map.Entry<Character, Integer> connection : currentMappings.get(letter)) {
+                Machine machine = createMachine(correctConfig);
+                machine.getCipheredText("A".repeat(connection.getValue()));
+                char c = machine.cipherCharacter(letter);
+                //System.out.println("Step " + connection.getValue() + ": " + connection.getKey() + "<->" + c);
+                correctConfig.addPlug(connection.getKey() + "" + c);
+                testedMappings.add(new char[]{connection.getKey(), c});
+            }
+        }
     }
 }

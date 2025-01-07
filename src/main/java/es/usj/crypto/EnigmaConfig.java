@@ -1,7 +1,9 @@
 package es.usj.crypto;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 public class EnigmaConfig {
     private byte[] rotorTypes;
@@ -66,6 +68,19 @@ public class EnigmaConfig {
         return plugboard;
     }
 
+    public char findMapping(char c) {
+        String[] pairs = plugboard.split(":");
+        for (String pair : pairs) {
+            if (pair.charAt(0) == c) {
+                return pair.charAt(1);
+            }
+            else if (pair.charAt(1) == c) {
+                return pair.charAt(0);
+            }
+        }
+        return c;
+    }
+
     public void setPlugboard(String plugboard) {
         if (Objects.equals(plugboard, "")) {
             this.plugboard = "";
@@ -80,14 +95,14 @@ public class EnigmaConfig {
         this.plugboard = plugboard;
     }
 
-    public void addPlug(String plug) {
+    public boolean addPlug(String plug) {
         if (plug.length() != 2) {
             throw new AssertionError("Plugboard length must be 2");
         }
         String pair1 = plug;
         String pair2 = "" + plug.charAt(1) + plug.charAt(0);
         if (this.plugboard.contains(pair1) || this.plugboard.contains(pair2)) {
-           return;
+            return true;
         }
         String newPlugboard1 = this.plugboard + plug.charAt(0);
         String newPlugboard2 = this.plugboard + plug.charAt(1);
@@ -95,18 +110,19 @@ public class EnigmaConfig {
             throw new AssertionError("Plugboard contains duplicate characters");
         }
         else if (plug.charAt(0) == plug.charAt(1)) {
-            return;
+            return true;
         }
         if (!this.plugboard.isEmpty()) {
             this.plugboard += ":";
         }
         this.plugboard += plug;
+        return true;
     }
 
-    private boolean containsDuplicateCharacters(String plugboard) {
-        for (int i = 0; i < plugboard.length(); i++) {
-            char c = plugboard.charAt(i);
-            if (c != ':' && plugboard.chars().filter(ch -> ch == c).count() > 1) {
+    public boolean containsDuplicateCharacters(String plugboard) {
+        Set<Character> seen = new HashSet<>();
+        for (char c : plugboard.toCharArray()) {
+            if (c != ':' && !seen.add(c)) {
                 return true;
             }
         }
