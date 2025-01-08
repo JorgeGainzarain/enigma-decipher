@@ -134,7 +134,7 @@ public class Bombe {
         List<EnigmaConfig> validConfigs = new ArrayList<>();
 
         int total = 5 * 4 * 3; // Rotors
-        total *= 26;// * 26 * 26; // Positions
+        total *= 26 * 26 * 26; // Positions
         total *= 26; // Mappings
         ProgressBar progressBar = new ProgressBar(total);
 
@@ -152,8 +152,8 @@ public class Bombe {
                                 for (char map = 'A'; map <= 'Z'; map++) {
                                     total++;
 
-                                    EnigmaConfig correctConfig = new EnigmaConfig(new int[]{L, M, R}, new char[]{LPos, MPos, RPos}, "");
-                                    //EnigmaConfig correctConfig = new EnigmaConfig(new int[]{L, M, R}, new char[]{LPos, 'U', 'E'}, "");
+                                    //EnigmaConfig correctConfig = new EnigmaConfig(new int[]{L, M, R}, new char[]{LPos, MPos, RPos}, "");
+                                    EnigmaConfig correctConfig = new EnigmaConfig(new int[]{L, M, R}, new char[]{LPos, 'U', 'E'}, "");
                                     correctConfig.addPlug(letter + "" + map);
 
                                     List<char[]> testedMappings = new ArrayList<>();
@@ -249,7 +249,7 @@ public class Bombe {
 
         // Get initial top 100 configurations
         List<EnigmaConfig> top100Configs = validConfigs.stream()
-                .limit(5000)
+                .limit(100)
                 .toList();
 
         //System.out.println("\nTop 100 configurations:");
@@ -275,7 +275,7 @@ public class Bombe {
 
             configs = new ArrayList<>(uniqueConfigs.stream()
                     .sorted(Comparator.comparingDouble(EnigmaConfig::getScore).reversed())
-                    .limit(5000)
+                    .limit(100)
                     .toList());
 
             configs.addAll(top100Configs);
@@ -307,7 +307,7 @@ public class Bombe {
 
             top100Configs = newConfigs.stream()
                     .sorted(Comparator.comparingDouble(EnigmaConfig::getScore).reversed())
-                    .limit(5000)
+                    .limit(100)
                     .toList();
 
         }
