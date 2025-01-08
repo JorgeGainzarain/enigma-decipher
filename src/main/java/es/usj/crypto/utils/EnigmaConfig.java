@@ -151,6 +151,9 @@ public class EnigmaConfig {
         if (containsDuplicateCharacters(newPlugboard1) || containsDuplicateCharacters(newPlugboard2)) {
             throw new AssertionError("Plugboard contains duplicate characters");
         }
+        if (plug.charAt(0) == plug.charAt(1)) {
+            return true;
+        }
         if (!this.plugboard.isEmpty()) {
             this.plugboard += ":";
         }

@@ -134,7 +134,7 @@ public class Bombe {
         List<EnigmaConfig> validConfigs = new ArrayList<>();
 
         int total = 5 * 4 * 3; // Rotors
-        total *= 26 * 26 * 26; // Positions
+        total *= 26;// * 26 * 26; // Positions
         total *= 26; // Mappings
         ProgressBar progressBar = new ProgressBar(total);
 
@@ -153,7 +153,7 @@ public class Bombe {
                                     total++;
 
                                     EnigmaConfig correctConfig = new EnigmaConfig(new int[]{L, M, R}, new char[]{LPos, MPos, RPos}, "");
-                                    //EnigmaConfig correctConfig = new EnigmaConfig(new int[]{L, M, R}, new char[]{LPos, 'D', 'A'}, "");
+                                    //EnigmaConfig correctConfig = new EnigmaConfig(new int[]{L, M, R}, new char[]{LPos, 'U', 'E'}, "");
                                     correctConfig.addPlug(letter + "" + map);
 
                                     List<char[]> testedMappings = new ArrayList<>();
@@ -312,7 +312,7 @@ public class Bombe {
 
         }
 
-        List<EnigmaConfig> immutableTop10Configs = Collections.unmodifiableList(top100Configs.stream().limit(50).toList());
+        List<EnigmaConfig> immutableTop10Configs = top100Configs.stream().limit(5).toList();
         immutableTop10Configs.forEach(topConfig -> {
             String currTxt = manager.process(topConfig);
             System.out.println("Configuration:");
